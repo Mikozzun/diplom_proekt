@@ -1,0 +1,8 @@
+/node_modules
+/.vscode
+/generated/prisma
+# Environment configuration
+**/.env
+
+# VS Code Configuration
+**/.vscode/
