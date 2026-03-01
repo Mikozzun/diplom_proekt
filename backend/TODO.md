@@ -3,8 +3,10 @@
 ## Legend
 
 - [ ] Not started
+
 - [~] In progress
-- [x] Done
+
+- [X] Done
 
 ---
 
@@ -44,35 +46,35 @@
 
 ### 3.1 Users Module
 
-- [ ] Create `UsersModule`, `UsersController`, `UsersService`
-- [ ] `GET /users/profile` — get own profile
-- [ ] `PATCH /users/profile` — update username, profile image
-- [ ] `GET /users/:id` — get public profile
-- [ ] `GET /users/settings` — get user settings
-- [ ] `PATCH /users/settings` — update theme, notification preferences
-- [ ] Write unit tests for UsersService
-- [ ] Write unit tests for UsersController
+- [X] Create `UsersModule`, `UsersController`, `UsersService`
+- [X] `GET /users/profile` — get own profile
+- [X] `PATCH /users/profile` — update username, profile image
+- [X] `GET /users/:id` — get public profile
+- [X] `GET /users/settings` — get user settings
+- [X] `PATCH /users/settings` — update theme, notification preferences
+- [X] Write unit tests for UsersService
+- [X] Write unit tests for UsersController
 
 ### 3.2 Posts Module
 
-- [ ] Create `PostsModule`, `PostsController`, `PostsService`
-- [ ] `POST /posts` — create post (text, image, video)
-- [ ] `GET /posts` — list posts with pagination (feed)
-- [ ] `GET /posts/:id` — get single post with comments count, likes count
-- [ ] `PATCH /posts/:id` — update own post
-- [ ] `DELETE /posts/:id` — delete own post
-- [ ] `GET /users/:id/posts` — list posts by user
-- [ ] Add ownership check (can only edit/delete own posts)
-- [ ] Write tests
+- [X] Create `PostsModule`, `PostsController`, `PostsService`
+- [X] `POST /posts` — create post (text, image, video)
+- [X] `GET /posts` — list posts with pagination (feed)
+- [X] `GET /posts/:id` — get single post with comments count, likes count
+- [X] `PATCH /posts/:id` — update own post
+- [X] `DELETE /posts/:id` — delete own post
+- [X] `GET /posts/user/:userId` — list posts by user
+- [X] Add ownership check (can only edit/delete own posts)
+- [X] Write tests
 
 ### 3.3 Comments Module
 
-- [ ] Create `CommentsModule`, `CommentsController`, `CommentsService`
-- [ ] `POST /posts/:postId/comments` — add comment
-- [ ] `GET /posts/:postId/comments` — list comments with pagination
-- [ ] `PATCH /comments/:id` — edit own comment
-- [ ] `DELETE /comments/:id` — delete own comment
-- [ ] Write tests
+- [X] Create `CommentsModule`, `CommentsController`, `CommentsService`
+- [X] `POST /posts/:postId/comments` — add comment
+- [X] `GET /posts/:postId/comments` — list comments with pagination
+- [X] `PATCH /comments/:id` — edit own comment
+- [X] `DELETE /comments/:id` — delete own comment
+- [X] Write tests
 
 ### 3.4 Likes Module
 
@@ -165,60 +167,32 @@
 - [ ] Handle connection/disconnection lifecycle
 - [ ] Write tests
 
----
-
-## 5. DevOps & Infrastructure
-
-- [ ] Create `Dockerfile` (multi-stage: build → production)
-- [ ] Create `docker-compose.yml` (app + PostgreSQL)
-- [ ] Set up CI/CD pipeline (GitHub Actions or GitLab CI)
-  - [ ] Lint step
-  - [ ] Test step (unit + e2e)
-  - [ ] Build step
-  - [ ] Deploy step
-- [ ] Run `npx prisma migrate dev` to generate migration files (currently no migrations)
-- [ ] Create `prisma/seed.ts` with development seed data
-- [ ] Add seed script to `package.json`: `"prisma": { "seed": "ts-node prisma/seed.ts" }`
-- [ ] Set up structured logging (Winston or Pino) for production
-- [ ] Add error tracking (Sentry or similar)
-- [ ] Configure PM2 or cluster mode for production
-
----
-
-## 6. Code Quality
-
-- [ ] Extract `PrismaService` into a dedicated `PrismaModule` (stop declaring in each feature module)
-- [ ] Replace `GET /` "Hello World" with a proper health check
-- [ ] Add barrel exports (`index.ts`) to each module directory
-- [ ] Add `strict: true` to `tsconfig.json` progressively
-- [ ] Increase test coverage to > 80% across all modules
-- [ ] Add pre-commit hooks (Husky + lint-staged)
 
 ---
 
 ## Current Progress
 
-| Area | Status |
-|---|---|
-| Database schema (22 models) | [x] Done |
-| Auth system (OTP + WebAuthn + sessions) | [x] Done |
-| Session store (PostgreSQL, no Redis) | [x] Done |
-| Session guard | [x] Done |
-| ESLint configuration | [x] Done |
-| Unit tests (72) | [x] Done |
-| E2E tests (11) | [x] Done |
-| Project documentation (6 files) | [x] Done |
-| Users module | [ ] Not started |
-| Posts module | [ ] Not started |
-| Comments module | [ ] Not started |
+| Area                                          | Status          |
+| --------------------------------------------- | --------------- |
+| Database schema (22 models)                   | [x] Done        |
+| Auth system (OTP + WebAuthn + sessions)       | [x] Done        |
+| Session store (PostgreSQL, no Redis)          | [x] Done        |
+| Session guard                                 | [x] Done        |
+| ESLint configuration                          | [x] Done        |
+| Unit tests (130)                              | [x] Done        |
+| E2E tests (11)                                | [x] Done        |
+| Project documentation (6 files)               | [x] Done        |
+| Users module                                  | [x] Done        |
+| Posts module                                  | [x] Done        |
+| Comments module                               | [x] Done        |
 | Social features (likes, bookmarks, reactions) | [ ] Not started |
-| Polls module | [ ] Not started |
-| File upload | [ ] Not started |
-| Notifications + WebSocket | [ ] Not started |
-| Roles & authorization | [ ] Not started |
-| Moderation | [ ] Not started |
-| Analytics | [ ] Not started |
-| Validation (class-validator) | [ ] Not started |
-| Security hardening | [ ] Not started |
-| Swagger / API docs | [ ] Not started |
-| Docker / CI/CD | [ ] Not started |
+| Polls module                                  | [ ] Not started |
+| File upload                                   | [ ] Not started |
+| Notifications + WebSocket                     | [ ] Not started |
+| Roles & authorization                         | [ ] Not started |
+| Moderation                                    | [ ] Not started |
+| Analytics                                     | [ ] Not started |
+| Validation (class-validator)                  | [ ] Not started |
+| Security hardening                            | [ ] Not started |
+|                                               |                 |
+|                                               |                 |
