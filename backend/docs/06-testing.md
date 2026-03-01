@@ -2,11 +2,11 @@
 
 ## Overview
 
-The project has **83 tests** organized into two categories:
+The project has **141 tests** organized into two categories:
 
 | Category | Location | Count | Config | Runner |
 |---|---|---|---|---|
-| **Unit tests** | `test/unit/` | 72 | `package.json` → `jest` section | `npm test` |
+| **Unit tests** | `test/unit/` | 130 | `package.json` → `jest` section | `npm test` |
 | **E2E tests** | `test/e2e/` | 11 | `test/jest-e2e.json` | `npm run test:e2e` |
 
 All tests use **Jest 30** with **ts-jest** for TypeScript compilation.
@@ -19,14 +19,23 @@ All tests use **Jest 30** with **ts-jest** for TypeScript compilation.
 test/
 ├── unit/
 │   ├── app.controller.spec.ts           (1 test)
-│   └── auth/
-│       ├── otp.service.spec.ts          (8 tests)
-│       ├── webauthn.service.spec.ts     (11 tests)
-│       ├── session.service.spec.ts      (11 tests)
-│       ├── auth.controller.spec.ts      (20 tests)
-│       ├── prisma-session-store.spec.ts (16 tests)
-│       └── guards/
-│           └── session.guard.spec.ts    (6 tests)
+│   ├── auth/
+│   │   ├── otp.service.spec.ts          (8 tests)
+│   │   ├── webauthn.service.spec.ts     (11 tests)
+│   │   ├── session.service.spec.ts      (11 tests)
+│   │   ├── auth.controller.spec.ts      (20 tests)
+│   │   ├── prisma-session-store.spec.ts (16 tests)
+│   │   └── guards/
+│   │       └── session.guard.spec.ts    (6 tests)
+│   ├── users/
+│   │   ├── users.service.spec.ts        (10 tests)
+│   │   └── users.controller.spec.ts     (5 tests)
+│   ├── posts/
+│   │   ├── posts.service.spec.ts        (16 tests)
+│   │   └── posts.controller.spec.ts     (7 tests)
+│   └── comments/
+│       ├── comments.service.spec.ts     (14 tests)
+│       └── comments.controller.spec.ts  (6 tests)
 ├── e2e/
 │   ├── app.e2e-spec.ts                  (1 test)
 │   └── auth.e2e-spec.ts                 (10 tests)
@@ -391,6 +400,12 @@ Without a session cookie, the `SessionGuard` rejects the request with 401.
 | **AuthController** (20) | All 9 endpoints, error paths (invalid OTP, missing phone, session ownership), session destruction success/failure |
 | **PrismaSessionStore** (16) | get/set/destroy/touch operations, expired session cleanup, error handling, P2025 suppression, timer management |
 | **SessionGuard** (6) | Allow with userId, reject undefined/null/empty, error message, edge cases |
+| **UsersService** (10) | getProfile, getPublicProfile (with post count), updateProfile (username, image, empty DTO), getSettings (existing + auto-create defaults), updateSettings (theme, notifications) |
+| **UsersController** (5) | GET/PATCH profile, GET/PATCH settings, GET public profile — all with mocked service |
+| **PostsService** (16) | Create (content, image-only, empty rejection), findAll (pagination, hasMore detection, cursor, MAX_PAGE_SIZE cap), findByUser, findOne (not found), update/delete (ownership, not found, forbidden) |
+| **PostsController** (7) | POST create, GET list (no cursor, with cursor+limit), GET by user, GET single, PATCH update, DELETE remove |
+| **CommentsService** (14) | Create (success, empty content, post not found), findByPost (pagination, hasMore, post not found, cursor), update (success, empty, not found, forbidden), remove (success, not found, forbidden) |
+| **CommentsController** (6) | POST create, GET list (no cursor, with cursor+limit), PATCH update, DELETE remove |
 | **AppController** (1) | GET / returns "Hello World!" |
 | **E2E App** (1) | Full HTTP GET / through the real app pipeline |
 | **E2E Auth** (10) | OTP send/verify, registration rejection, login options, 5 protected routes return 401, full OTP → WebAuthn flow |

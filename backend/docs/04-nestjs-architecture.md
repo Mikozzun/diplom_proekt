@@ -25,9 +25,9 @@ A module is a class annotated with `@Module()`. It groups related controllers, s
 
 ```typescript
 @Module({
-  imports: [AuthModule],          // Feature modules
-  controllers: [AppController],   // Root-level controllers
-  providers: [AppService],         // Root-level services
+  imports: [AuthModule, UsersModule, PostsModule, CommentsModule],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
 ```
@@ -51,17 +51,74 @@ export class AuthModule {}
 - **Provides** `PrismaService` internally (services can inject it)
 - **Exports** three services so other modules can import `AuthModule` and use them
 
+### Feature Module — `UsersModule`
+
+```typescript
+@Module({
+  controllers: [UsersController],
+  providers: [UsersService, PrismaService],
+  exports: [UsersService],
+})
+export class UsersModule {}
+```
+
+- Manages user profile and settings CRUD
+- `UsersController` has 5 endpoints (profile get/update, settings get/update, public profile)
+- Uses `SessionGuard` for authenticated routes
+
+### Feature Module — `PostsModule`
+
+```typescript
+@Module({
+  controllers: [PostsController],
+  providers: [PostsService, PrismaService],
+  exports: [PostsService],
+})
+export class PostsModule {}
+```
+
+- Full post CRUD with cursor-based pagination
+- `PostsController` has 6 endpoints (create, list, list by user, get, update, delete)
+- Ownership checks — only post authors can update/delete
+
+### Feature Module — `CommentsModule`
+
+```typescript
+@Module({
+  controllers: [CommentsController],
+  providers: [CommentsService, PrismaService],
+  exports: [CommentsService],
+})
+export class CommentsModule {}
+```
+
+- Comment CRUD nested under posts (`/posts/:postId/comments`)
+- `CommentsController` has 4 endpoints (create, list by post, update, delete)
+- Ownership checks and empty-content validation
+
 ### Module Dependency Graph
 
 ```
 AppModule
   ├── AppController + AppService
-  └── AuthModule
-        ├── AuthController
-        ├── OtpService        ← uses PrismaService
-        ├── WebAuthnService    ← uses PrismaService
-        ├── SessionService     ← uses PrismaService
-        └── PrismaService      ← extends PrismaClient
+  ├── AuthModule
+  │     ├── AuthController
+  │     ├── OtpService        ← uses PrismaService
+  │     ├── WebAuthnService    ← uses PrismaService
+  │     ├── SessionService     ← uses PrismaService
+  │     └── PrismaService      ← extends PrismaClient
+  ├── UsersModule
+  │     ├── UsersController    ← uses UsersService
+  │     ├── UsersService       ← uses PrismaService
+  │     └── PrismaService
+  ├── PostsModule
+  │     ├── PostsController    ← uses PostsService
+  │     ├── PostsService       ← uses PrismaService
+  │     └── PrismaService
+  └── CommentsModule
+        ├── CommentsController ← uses CommentsService
+        ├── CommentsService    ← uses PrismaService
+        └── PrismaService
 ```
 
 ---
@@ -123,6 +180,44 @@ The main controller with 9 endpoints. See [Authentication docs](03-authenticatio
 
 Business logic lives in services, not controllers.
 
+### `UsersController`
+
+5 endpoints under the `/users` prefix:
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| `GET` | `/users/profile` | Yes | Get own profile (phone, username, avatar) |
+| `PATCH` | `/users/profile` | Yes | Update username or profile image |
+| `GET` | `/users/settings` | Yes | Get own settings (theme, notifications) |
+| `PATCH` | `/users/settings` | Yes | Update settings (upserts defaults if missing) |
+| `GET` | `/users/:id` | No | Get public profile with post count |
+
+### `PostsController`
+
+6 endpoints under the `/posts` prefix:
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| `POST` | `/posts` | Yes | Create a post (text, image, or video) |
+| `GET` | `/posts` | No | List posts with cursor pagination (`?cursor=&limit=`) |
+| `GET` | `/posts/user/:userId` | No | List posts by a specific user |
+| `GET` | `/posts/:id` | No | Get a single post with comment/like counts |
+| `PATCH` | `/posts/:id` | Yes | Update own post (ownership check) |
+| `DELETE` | `/posts/:id` | Yes | Delete own post (ownership check) |
+
+**Cursor Pagination:** Fetches `limit + 1` rows; if the extra row exists, `hasMore: true`. Response: `{ data, hasMore, nextCursor }`.
+
+### `CommentsController`
+
+4 endpoints using mixed route prefixes (controller has no prefix):
+
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| `POST` | `/posts/:postId/comments` | Yes | Add a comment to a post |
+| `GET` | `/posts/:postId/comments` | No | List comments for a post (cursor pagination) |
+| `PATCH` | `/comments/:id` | Yes | Edit own comment (ownership check) |
+| `DELETE` | `/comments/:id` | Yes | Delete own comment (ownership check) |
+
 ---
 
 ## Services (Providers)
@@ -147,6 +242,9 @@ export class OtpService {
 | `OtpService` | `PrismaService` | DB operations (create/query OTP records) |
 | `WebAuthnService` | `PrismaService` | DB + external library (`@simplewebauthn/server`) |
 | `SessionService` | `PrismaService` | DB operations (session CRUD) |
+| `UsersService` | `PrismaService` | DB operations (profile & settings CRUD) |
+| `PostsService` | `PrismaService` | DB operations (post CRUD, cursor pagination, ownership checks) |
+| `CommentsService` | `PrismaService` | DB operations (comment CRUD, cursor pagination, ownership checks) |
 | `PrismaService` | — | Infrastructure (extends `PrismaClient`) |
 
 ### Constructor Injection
@@ -232,6 +330,21 @@ src/auth/dto/
   ├── verify-otp.dto.ts            → { phoneNumber: string, code: string }
   ├── verify-registration.dto.ts   → { phoneNumber: string, credential: RegistrationResponseJSON }
   ├── verify-authentication.dto.ts → { credential: AuthenticationResponseJSON }
+  └── index.ts                     → Barrel re-export
+
+src/users/dto/
+  ├── update-profile.dto.ts        → { username?: string, profileImage?: string }
+  ├── update-settings.dto.ts       → { theme?: string, notificationsEnabled?: boolean }
+  └── index.ts                     → Barrel re-export
+
+src/posts/dto/
+  ├── create-post.dto.ts           → { content?: string, imageUrl?: string, videoUrl?: string }
+  ├── update-post.dto.ts           → { content?: string, imageUrl?: string, videoUrl?: string }
+  └── index.ts                     → Barrel re-export
+
+src/comments/dto/
+  ├── create-comment.dto.ts        → { content: string }
+  ├── update-comment.dto.ts        → { content: string }
   └── index.ts                     → Barrel re-export
 ```
 
@@ -370,6 +483,21 @@ NestFactory.create(AppModule)
   │    ├─ Instantiates WebAuthnService(PrismaService)
   │    ├─ Instantiates SessionService(PrismaService)
   │    └─ Instantiates AuthController(OtpService, WebAuthnService, SessionService)
+  │
+  ├─ Discovers UsersModule import
+  │    ├─ Instantiates PrismaService (singleton)
+  │    ├─ Instantiates UsersService(PrismaService)
+  │    └─ Instantiates UsersController(UsersService)
+  │
+  ├─ Discovers PostsModule import
+  │    ├─ Instantiates PrismaService (singleton)
+  │    ├─ Instantiates PostsService(PrismaService)
+  │    └─ Instantiates PostsController(PostsService)
+  │
+  ├─ Discovers CommentsModule import
+  │    ├─ Instantiates PrismaService (singleton)
+  │    ├─ Instantiates CommentsService(PrismaService)
+  │    └─ Instantiates CommentsController(CommentsService)
   │
   ├─ Instantiates AppService()
   └─ Instantiates AppController(AppService)

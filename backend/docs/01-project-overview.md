@@ -36,35 +36,68 @@ backend/
 │   ├── app.module.ts              # Root module
 │   ├── app.controller.ts          # Root GET / endpoint
 │   ├── app.service.ts             # Root service
-│   └── auth/
-│       ├── auth.module.ts         # Auth feature module
-│       ├── auth.controller.ts     # 9 REST endpoints
-│       ├── otp.service.ts         # OTP generation & verification
-│       ├── webauthn.service.ts    # Passkey registration & authentication
-│       ├── session.service.ts     # Session CRUD helpers
-│       ├── prisma-session-store.ts# express-session Store via Prisma
-│       ├── guards/
-│       │   ├── session.guard.ts   # Reusable auth guard
-│       │   └── index.ts           # Barrel re-export
-│       ├── dto/
-│       │   ├── send-otp.dto.ts
-│       │   ├── verify-otp.dto.ts
-│       │   ├── verify-registration.dto.ts
-│       │   ├── verify-authentication.dto.ts
-│       │   └── index.ts           # Barrel re-export
-│       └── types/
-│           └── session.d.ts       # SessionData augmentation
+│   ├── auth/
+│   │   ├── auth.module.ts         # Auth feature module
+│   │   ├── auth.controller.ts     # 9 REST endpoints
+│   │   ├── otp.service.ts         # OTP generation & verification
+│   │   ├── webauthn.service.ts    # Passkey registration & authentication
+│   │   ├── session.service.ts     # Session CRUD helpers
+│   │   ├── prisma-session-store.ts# express-session Store via Prisma
+│   │   ├── guards/
+│   │   │   ├── session.guard.ts   # Reusable auth guard
+│   │   │   └── index.ts           # Barrel re-export
+│   │   ├── dto/
+│   │   │   ├── send-otp.dto.ts
+│   │   │   ├── verify-otp.dto.ts
+│   │   │   ├── verify-registration.dto.ts
+│   │   │   ├── verify-authentication.dto.ts
+│   │   │   └── index.ts           # Barrel re-export
+│   │   └── types/
+│   │       └── session.d.ts       # SessionData augmentation
+│   ├── users/
+│   │   ├── users.module.ts        # Users feature module
+│   │   ├── users.controller.ts    # 5 REST endpoints
+│   │   ├── users.service.ts       # Profile & settings business logic
+│   │   └── dto/
+│   │       ├── update-profile.dto.ts
+│   │       ├── update-settings.dto.ts
+│   │       └── index.ts           # Barrel re-export
+│   ├── posts/
+│   │   ├── posts.module.ts        # Posts feature module
+│   │   ├── posts.controller.ts    # 6 REST endpoints
+│   │   ├── posts.service.ts       # Post CRUD with pagination & ownership
+│   │   └── dto/
+│   │       ├── create-post.dto.ts
+│   │       ├── update-post.dto.ts
+│   │       └── index.ts           # Barrel re-export
+│   └── comments/
+│       ├── comments.module.ts     # Comments feature module
+│       ├── comments.controller.ts # 4 REST endpoints
+│       ├── comments.service.ts    # Comment CRUD with pagination & ownership
+│       └── dto/
+│           ├── create-comment.dto.ts
+│           ├── update-comment.dto.ts
+│           └── index.ts           # Barrel re-export
 ├── test/
-│   ├── unit/                      # 72 unit tests
+│   ├── unit/                      # 130 unit tests
 │   │   ├── app.controller.spec.ts
-│   │   └── auth/
-│   │       ├── otp.service.spec.ts
-│   │       ├── webauthn.service.spec.ts
-│   │       ├── session.service.spec.ts
-│   │       ├── auth.controller.spec.ts
-│   │       ├── prisma-session-store.spec.ts
-│   │       └── guards/
-│   │           └── session.guard.spec.ts
+│   │   ├── auth/
+│   │   │   ├── otp.service.spec.ts
+│   │   │   ├── webauthn.service.spec.ts
+│   │   │   ├── session.service.spec.ts
+│   │   │   ├── auth.controller.spec.ts
+│   │   │   ├── prisma-session-store.spec.ts
+│   │   │   └── guards/
+│   │   │       └── session.guard.spec.ts
+│   │   ├── users/
+│   │   │   ├── users.service.spec.ts
+│   │   │   └── users.controller.spec.ts
+│   │   ├── posts/
+│   │   │   ├── posts.service.spec.ts
+│   │   │   └── posts.controller.spec.ts
+│   │   └── comments/
+│   │       ├── comments.service.spec.ts
+│   │       └── comments.controller.spec.ts
 │   ├── e2e/                       # 11 E2E tests
 │   │   ├── app.e2e-spec.ts
 │   │   └── auth.e2e-spec.ts
@@ -88,7 +121,7 @@ backend/
 | `npm run start:dev` | `nest start --watch` | Start with hot-reload |
 | `npm run build` | `nest build` | Compile TypeScript to `dist/` |
 | `npm run start:prod` | `node dist/main` | Run compiled output |
-| `npm test` | `jest` | Run unit tests (72 specs) |
+| `npm test` | `jest` | Run unit tests (130 specs) |
 | `npm run test:e2e` | `jest --config ./test/jest-e2e.json` | Run E2E tests (11 specs) |
 | `npm run test:cov` | `jest --coverage` | Unit tests with coverage report |
 | `npm run lint` | `eslint ... --fix` | Lint & auto-fix all source |
