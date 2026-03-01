@@ -6,22 +6,314 @@ datasource db {
   provider = "postgresql"
 }
 
+// ──────────────────────────────────────────
+// Users & Auth
+// ──────────────────────────────────────────
+
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String   // Hashed
-  followers Int[]    // Array of user IDs (use Int[] for simplicity; or relation for normalization)
-  posts     Post[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           BigInt    @id @default(autoincrement())
+  phoneNumber  String    @map("phone_number")
+  passkey      String
+  username     String
+  profileImage String?   @map("profile_image")
+  createdAt    DateTime? @default(now()) @map("created_at")
+
+  posts                  Post[]
+  comments               Comment[]
+  likes                  Like[]
+  bookmarks              Bookmark[]
+  reactions              Reaction[]
+  notifications          Notification[]
+  storageFiles           Storage[]
+  userSettings           UserSettings?
+  activityLogs           UserActivityLog[]
+  pollResponses          PollResponse[]
+  reports                Report[]
+  userRoles              UserRole[]
+  admin                  Admin?
+  userPostRandomizations UserPostRandomization[]
+  credentials            Credential[]
+
+  @@map("users")
 }
 
+model Credential {
+  id                  BigInt    @id @default(autoincrement())
+  userId              BigInt    @map("user_id")
+  credentialId        String    @unique @map("credential_id")
+  credentialPublicKey Bytes     @map("credential_public_key")
+  counter             BigInt    @default(0)
+  transports          String[]  @default([])
+  createdAt           DateTime? @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credentials")
+}
+
+model OtpChallenge {
+  id          BigInt    @id @default(autoincrement())
+  phoneNumber String    @map("phone_number")
+  code        String
+  expiresAt   DateTime  @map("expires_at")
+  verified    Boolean   @default(false)
+  createdAt   DateTime? @default(now()) @map("created_at")
+
+  @@index([phoneNumber, code])
+  @@map("otp_challenges")
+}
+
+model Session {
+  id        String   @id @map("sid")
+  data      String
+  expiresAt DateTime @map("expires_at")
+
+  @@map("sessions")
+}
+
+model Admin {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @unique @map("user_id")
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("admins")
+}
+
+model Role {
+  id   BigInt @id @default(autoincrement())
+  name String
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     BigInt  @id @default(autoincrement())
+  userId BigInt? @map("user_id")
+  roleId BigInt? @map("role_id")
+
+  user User? @relation(fields: [userId], references: [id])
+  role Role? @relation(fields: [roleId], references: [id])
+
+  @@map("user_roles")
+}
+
+model UserSettings {
+  id                   BigInt    @id @default(autoincrement())
+  userId               BigInt?   @unique @map("user_id")
+  theme                String?   @default("light")
+  notificationsEnabled Boolean?  @default(true) @map("notifications_enabled")
+  createdAt            DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("user_settings")
+}
+
+// ──────────────────────────────────────────
+// Posts & Content
+// ──────────────────────────────────────────
+
 model Post {
-  id        Int      @id @default(autoincrement())
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @map("user_id")
+  content   String?
+  imageUrl  String?   @map("image_url")
+  videoUrl  String?   @map("video_url")
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  user                   User?                   @relation(fields: [userId], references: [id])
+  comments               Comment[]
+  likes                  Like[]
+  bookmarks              Bookmark[]
+  reactions              Reaction[]
+  polls                  Poll[]
+  userPostRandomizations UserPostRandomization[]
+
+  @@map("posts")
+}
+
+model Comment {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @map("user_id")
+  postId    BigInt?   @map("post_id")
   content   String
-  authorId  Int
-  likes     Int[]    // Array of user IDs who liked
-  author    User     @relation(fields: [authorId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id])
+  post Post? @relation(fields: [postId], references: [id])
+
+  @@map("comments")
+}
+
+model Like {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @map("user_id")
+  postId    BigInt?   @map("post_id")
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+  post Post? @relation(fields: [postId], references: [id])
+
+  @@map("likes")
+}
+
+model Bookmark {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @map("user_id")
+  postId    BigInt?   @map("post_id")
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+  post Post? @relation(fields: [postId], references: [id])
+
+  @@map("bookmarks")
+}
+
+model Reaction {
+  id           BigInt    @id @default(autoincrement())
+  userId       BigInt?   @map("user_id")
+  postId       BigInt?   @map("post_id")
+  reactionType String    @map("reaction_type")
+  createdAt    DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+  post Post? @relation(fields: [postId], references: [id])
+
+  @@map("reactions")
+}
+
+// ──────────────────────────────────────────
+// Polls
+// ──────────────────────────────────────────
+
+model Poll {
+  id        BigInt    @id @default(autoincrement())
+  postId    BigInt?   @map("post_id")
+  question  String
+  options   Json
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  post      Post?          @relation(fields: [postId], references: [id])
+  responses PollResponse[]
+
+  @@map("polls")
+}
+
+model PollResponse {
+  id             BigInt    @id @default(autoincrement())
+  pollId         BigInt?   @map("poll_id")
+  userId         BigInt?   @map("user_id")
+  selectedOption String    @map("selected_option")
+  createdAt      DateTime? @default(now()) @map("created_at")
+
+  poll Poll? @relation(fields: [pollId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("poll_responses")
+}
+
+// ──────────────────────────────────────────
+// Notifications
+// ──────────────────────────────────────────
+
+model Notification {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @map("user_id")
+  type      String
+  message   String
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+// ──────────────────────────────────────────
+// Storage
+// ──────────────────────────────────────────
+
+model Storage {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @map("user_id")
+  fileName  String    @map("file_name")
+  fileType  String    @map("file_type")
+  fileSize  BigInt    @map("file_size")
+  fileUrl   String    @map("file_url")
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("storage")
+}
+
+// ──────────────────────────────────────────
+// Moderation & Reports
+// ──────────────────────────────────────────
+
+model Report {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt?   @map("user_id")
+  reportType  String    @map("report_type")
+  description String?
+  createdAt   DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("reports")
+}
+
+model ModerationQueue {
+  id          BigInt    @id @default(autoincrement())
+  contentType String    @map("content_type")
+  contentId   BigInt    @map("content_id")
+  status      String?   @default("pending")
+  createdAt   DateTime? @default(now()) @map("created_at")
+
+  @@map("moderation_queue")
+}
+
+// ──────────────────────────────────────────
+// Analytics & Logging
+// ──────────────────────────────────────────
+
+model UserActivityLog {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt?   @map("user_id")
+  action    String
+  timestamp DateTime? @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("user_activity_log")
+}
+
+model DailyMetrics {
+  id           BigInt   @id @default(autoincrement())
+  date         DateTime @db.Date
+  newUsers     Int?     @default(0) @map("new_users")
+  activeUsers  Int?     @default(0) @map("active_users")
+  postsCreated Int?     @default(0) @map("posts_created")
+  commentsMade Int?     @default(0) @map("comments_made")
+
+  @@map("daily_metrics")
+}
+
+model UserPostRandomization {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt?   @map("user_id")
+  postId      BigInt?   @map("post_id")
+  randomOrder Int       @map("random_order")
+  createdAt   DateTime? @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+  post Post? @relation(fields: [postId], references: [id])
+
+  @@map("user_post_randomization")
 }
