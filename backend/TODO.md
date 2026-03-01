@@ -1,0 +1,224 @@
+# Backend TODO
+
+## Legend
+
+- [ ] Not started
+- [~] In progress
+- [x] Done
+
+---
+
+## 1. Security Hardening (Critical)
+
+- [ ] Add global `ValidationPipe` in `main.ts` (install `class-validator` + `class-transformer`)
+- [ ] Add `class-validator` decorators to all DTOs (`@IsString`, `@IsPhoneNumber`, `@IsNotEmpty`)
+- [ ] Install and configure `helmet` for security headers
+- [ ] Install `@nestjs/throttler` — rate-limit OTP endpoint to prevent brute-force / SMS bombing
+- [ ] Generate a real `SESSION_SECRET` (64+ random chars) and add to `.env`
+- [ ] Add `.env` to `.gitignore` (currently may be tracked with API keys)
+- [ ] Create `.env.example` template with placeholder values
+- [ ] Add CSRF protection (double-submit cookie or `csurf`)
+- [ ] Add input sanitization for user-generated content (posts, comments)
+- [ ] Add `ClassSerializerInterceptor` globally to strip sensitive fields (`passkey`, `credentialPublicKey`)
+
+---
+
+## 2. Global Infrastructure
+
+- [ ] Create a `PrismaModule` (`@Global()`) so PrismaService is shared across all modules instead of re-declared
+- [ ] Consolidate the two `PrismaClient` instances (one in `main.ts`, one in `PrismaService`) into one shared instance
+- [ ] Install `@nestjs/config` — replace raw `process.env` access with validated `ConfigService`
+- [ ] Add environment variable validation schema (Joi or Zod) for startup checks
+- [ ] Set global API prefix: `app.setGlobalPrefix('api/v1')`
+- [ ] Create custom `HttpExceptionFilter` for consistent error response format
+- [ ] Add request logging middleware or interceptor
+- [ ] Install `@nestjs/swagger` for auto-generated API documentation
+- [ ] Add health check endpoint (`@nestjs/terminus` — DB, memory, disk checks)
+- [ ] Create shared pagination DTO and helper (offset/cursor-based)
+- [ ] Add BigInt serialization interceptor (Prisma BigInt → string in JSON responses)
+- [ ] Remove unused dependencies: `@nestjs/jwt`, `@nestjs/passport`, `passport`, `passport-jwt`, `bcrypt`
+
+---
+
+## 3. Feature Modules
+
+### 3.1 Users Module
+
+- [ ] Create `UsersModule`, `UsersController`, `UsersService`
+- [ ] `GET /users/profile` — get own profile
+- [ ] `PATCH /users/profile` — update username, profile image
+- [ ] `GET /users/:id` — get public profile
+- [ ] `GET /users/settings` — get user settings
+- [ ] `PATCH /users/settings` — update theme, notification preferences
+- [ ] Write unit tests for UsersService
+- [ ] Write unit tests for UsersController
+
+### 3.2 Posts Module
+
+- [ ] Create `PostsModule`, `PostsController`, `PostsService`
+- [ ] `POST /posts` — create post (text, image, video)
+- [ ] `GET /posts` — list posts with pagination (feed)
+- [ ] `GET /posts/:id` — get single post with comments count, likes count
+- [ ] `PATCH /posts/:id` — update own post
+- [ ] `DELETE /posts/:id` — delete own post
+- [ ] `GET /users/:id/posts` — list posts by user
+- [ ] Add ownership check (can only edit/delete own posts)
+- [ ] Write tests
+
+### 3.3 Comments Module
+
+- [ ] Create `CommentsModule`, `CommentsController`, `CommentsService`
+- [ ] `POST /posts/:postId/comments` — add comment
+- [ ] `GET /posts/:postId/comments` — list comments with pagination
+- [ ] `PATCH /comments/:id` — edit own comment
+- [ ] `DELETE /comments/:id` — delete own comment
+- [ ] Write tests
+
+### 3.4 Likes Module
+
+- [ ] Create `LikesModule`, `LikesController`, `LikesService`
+- [ ] `POST /posts/:postId/like` — like a post (toggle)
+- [ ] `DELETE /posts/:postId/like` — unlike a post
+- [ ] `GET /posts/:postId/likes` — list users who liked
+- [ ] Write tests
+
+### 3.5 Bookmarks Module
+
+- [ ] Create `BookmarksModule`, `BookmarksController`, `BookmarksService`
+- [ ] `POST /posts/:postId/bookmark` — bookmark a post
+- [ ] `DELETE /posts/:postId/bookmark` — remove bookmark
+- [ ] `GET /bookmarks` — list user's bookmarks with pagination
+- [ ] Write tests
+
+### 3.6 Reactions Module
+
+- [ ] Create `ReactionsModule`, `ReactionsController`, `ReactionsService`
+- [ ] `POST /posts/:postId/reactions` — add reaction (type: emoji)
+- [ ] `DELETE /posts/:postId/reactions` — remove reaction
+- [ ] `GET /posts/:postId/reactions` — list reactions grouped by type
+- [ ] Write tests
+
+### 3.7 Polls Module
+
+- [ ] Create `PollsModule`, `PollsController`, `PollsService`
+- [ ] `POST /posts/:postId/poll` — create poll (question + options)
+- [ ] `POST /polls/:pollId/vote` — submit vote
+- [ ] `GET /polls/:pollId/results` — get poll results
+- [ ] Prevent duplicate votes per user
+- [ ] Write tests
+
+### 3.8 Storage / File Upload Module
+
+- [ ] Create `StorageModule`, `StorageController`, `StorageService`
+- [ ] Configure Multer for file uploads (image types, size limits)
+- [ ] `POST /upload` — upload file, return URL
+- [ ] `DELETE /storage/:id` — delete uploaded file
+- [ ] Integrate with Posts (attach images/videos to post creation)
+- [ ] Add file type validation and virus scanning considerations
+- [ ] Write tests
+
+### 3.9 Notifications Module
+
+- [ ] Create `NotificationsModule`, `NotificationsController`, `NotificationsService`
+- [ ] `GET /notifications` — list user's notifications with pagination
+- [ ] `PATCH /notifications/:id/read` — mark as read
+- [ ] `POST /notifications/read-all` — mark all as read
+- [ ] Create `NotificationsGateway` (WebSocket) for real-time push
+- [ ] Trigger notifications on: like, comment, reaction, poll response
+- [ ] Write tests
+
+### 3.10 Roles & Authorization Module
+
+- [ ] Create `RolesModule`, `RolesService`
+- [ ] Create `RolesGuard` with `@Roles('admin', 'moderator')` decorator
+- [ ] `GET /admin/roles` — list roles
+- [ ] `POST /admin/roles/:userId` — assign role to user
+- [ ] `DELETE /admin/roles/:userId/:roleId` — revoke role
+- [ ] Add admin-only route protection across relevant endpoints
+- [ ] Write tests
+
+### 3.11 Moderation Module
+
+- [ ] Create `ModerationModule`, `ModerationController`, `ModerationService`
+- [ ] `POST /reports` — user submits a report
+- [ ] `GET /admin/moderation` — list moderation queue (admin only)
+- [ ] `PATCH /admin/moderation/:id` — approve/reject content
+- [ ] Auto-populate moderation queue from reports
+- [ ] Write tests
+
+### 3.12 Analytics Module
+
+- [ ] Create `AnalyticsModule`, `AnalyticsService`
+- [ ] Create activity logging interceptor (auto-log user actions)
+- [ ] `GET /admin/analytics/daily` — daily metrics (admin only)
+- [ ] `GET /admin/analytics/users` — user activity logs (admin only)
+- [ ] Cron job or scheduled task for daily metrics aggregation
+- [ ] Write tests
+
+---
+
+## 4. WebSocket Gateway
+
+- [ ] Create `NotificationsGateway` using installed `@nestjs/websockets` + `socket.io`
+- [ ] Authenticate WebSocket connections using session cookie
+- [ ] Emit events: `new-notification`, `post-liked`, `new-comment`
+- [ ] Handle connection/disconnection lifecycle
+- [ ] Write tests
+
+---
+
+## 5. DevOps & Infrastructure
+
+- [ ] Create `Dockerfile` (multi-stage: build → production)
+- [ ] Create `docker-compose.yml` (app + PostgreSQL)
+- [ ] Set up CI/CD pipeline (GitHub Actions or GitLab CI)
+  - [ ] Lint step
+  - [ ] Test step (unit + e2e)
+  - [ ] Build step
+  - [ ] Deploy step
+- [ ] Run `npx prisma migrate dev` to generate migration files (currently no migrations)
+- [ ] Create `prisma/seed.ts` with development seed data
+- [ ] Add seed script to `package.json`: `"prisma": { "seed": "ts-node prisma/seed.ts" }`
+- [ ] Set up structured logging (Winston or Pino) for production
+- [ ] Add error tracking (Sentry or similar)
+- [ ] Configure PM2 or cluster mode for production
+
+---
+
+## 6. Code Quality
+
+- [ ] Extract `PrismaService` into a dedicated `PrismaModule` (stop declaring in each feature module)
+- [ ] Replace `GET /` "Hello World" with a proper health check
+- [ ] Add barrel exports (`index.ts`) to each module directory
+- [ ] Add `strict: true` to `tsconfig.json` progressively
+- [ ] Increase test coverage to > 80% across all modules
+- [ ] Add pre-commit hooks (Husky + lint-staged)
+
+---
+
+## Current Progress
+
+| Area | Status |
+|---|---|
+| Database schema (22 models) | [x] Done |
+| Auth system (OTP + WebAuthn + sessions) | [x] Done |
+| Session store (PostgreSQL, no Redis) | [x] Done |
+| Session guard | [x] Done |
+| ESLint configuration | [x] Done |
+| Unit tests (72) | [x] Done |
+| E2E tests (11) | [x] Done |
+| Project documentation (6 files) | [x] Done |
+| Users module | [ ] Not started |
+| Posts module | [ ] Not started |
+| Comments module | [ ] Not started |
+| Social features (likes, bookmarks, reactions) | [ ] Not started |
+| Polls module | [ ] Not started |
+| File upload | [ ] Not started |
+| Notifications + WebSocket | [ ] Not started |
+| Roles & authorization | [ ] Not started |
+| Moderation | [ ] Not started |
+| Analytics | [ ] Not started |
+| Validation (class-validator) | [ ] Not started |
+| Security hardening | [ ] Not started |
+| Swagger / API docs | [ ] Not started |
+| Docker / CI/CD | [ ] Not started |
