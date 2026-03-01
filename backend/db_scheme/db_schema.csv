@@ -1,0 +1,94 @@
+table_schema,table_name,column_name,data_type,is_nullable,column_default
+public,users,id,bigint,NO,
+public,posts,id,bigint,NO,
+public,bookmarks,id,bigint,NO,
+public,comments,id,bigint,NO,
+public,admins,id,bigint,NO,
+public,likes,id,bigint,NO,
+public,notifications,id,bigint,NO,
+public,reactions,id,bigint,NO,
+public,storage,id,bigint,NO,
+public,user_settings,id,bigint,NO,
+public,user_activity_log,id,bigint,NO,
+public,polls,id,bigint,NO,
+public,poll_responses,id,bigint,NO,
+public,reports,id,bigint,NO,
+public,roles,id,bigint,NO,
+public,user_roles,id,bigint,NO,
+public,moderation_queue,id,bigint,NO,
+public,daily_metrics,id,bigint,NO,
+public,user_post_randomization,id,bigint,NO,
+public,daily_metrics,comments_made,integer,YES,0
+public,users,created_at,timestamp with time zone,YES,now()
+public,comments,updated_at,timestamp with time zone,YES,
+public,posts,created_at,timestamp with time zone,YES,now()
+public,reactions,created_at,timestamp with time zone,YES,now()
+public,likes,user_id,bigint,YES,
+public,user_activity_log,action,text,NO,
+public,user_settings,user_id,bigint,YES,
+public,storage,file_size,bigint,NO,
+public,user_post_randomization,random_order,integer,NO,
+public,reports,user_id,bigint,YES,
+public,poll_responses,poll_id,bigint,YES,
+public,admins,created_at,timestamp with time zone,YES,now()
+public,user_post_randomization,post_id,bigint,YES,
+public,notifications,read_at,timestamp with time zone,YES,
+public,user_activity_log,timestamp,timestamp with time zone,YES,now()
+public,bookmarks,user_id,bigint,YES,
+public,notifications,message,text,NO,
+public,poll_responses,created_at,timestamp with time zone,YES,now()
+public,posts,updated_at,timestamp with time zone,YES,
+public,user_roles,role_id,bigint,YES,
+public,daily_metrics,new_users,integer,YES,0
+public,polls,options,jsonb,NO,
+public,moderation_queue,status,text,YES,'pending'::text
+public,comments,user_id,bigint,YES,
+public,users,phone_number,text,NO,
+public,posts,content,text,YES,
+public,reactions,user_id,bigint,YES,
+public,notifications,type,text,NO,
+public,posts,image_url,text,YES,
+public,comments,content,text,NO,
+public,users,passkey,text,NO,
+public,moderation_queue,content_type,text,NO,
+public,polls,question,text,NO,
+public,user_settings,created_at,timestamp with time zone,YES,now()
+public,daily_metrics,active_users,integer,YES,0
+public,storage,user_id,bigint,YES,
+public,reports,created_at,timestamp with time zone,YES,now()
+public,daily_metrics,date,date,NO,
+public,comments,post_id,bigint,YES,
+public,users,username,text,NO,
+public,posts,user_id,bigint,YES,
+public,user_post_randomization,created_at,timestamp with time zone,YES,now()
+public,user_roles,user_id,bigint,YES,
+public,storage,file_type,text,NO,
+public,reactions,reaction_type,text,NO,
+public,storage,file_name,text,NO,
+public,roles,name,text,NO,
+public,moderation_queue,content_id,bigint,NO,
+public,polls,post_id,bigint,YES,
+public,reactions,post_id,bigint,YES,
+public,notifications,user_id,bigint,YES,
+public,storage,created_at,timestamp with time zone,YES,now()
+public,reports,report_type,text,NO,
+public,moderation_queue,created_at,timestamp with time zone,YES,now()
+public,user_activity_log,user_id,bigint,YES,
+public,bookmarks,created_at,timestamp with time zone,YES,now()
+public,user_settings,theme,text,YES,'light'::text
+public,polls,created_at,timestamp with time zone,YES,now()
+public,poll_responses,selected_option,text,NO,
+public,likes,post_id,bigint,YES,
+public,notifications,created_at,timestamp with time zone,YES,now()
+public,daily_metrics,posts_created,integer,YES,0
+public,user_settings,notifications_enabled,boolean,YES,true
+public,bookmarks,post_id,bigint,YES,
+public,posts,video_url,text,YES,
+public,users,profile_image,text,YES,
+public,comments,created_at,timestamp with time zone,YES,now()
+public,reports,description,text,YES,
+public,admins,user_id,bigint,YES,
+public,user_post_randomization,user_id,bigint,YES,
+public,storage,file_url,text,NO,
+public,likes,created_at,timestamp with time zone,YES,now()
+public,poll_responses,user_id,bigint,YES,
