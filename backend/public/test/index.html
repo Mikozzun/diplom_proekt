@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frogger — Auth Test</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2rem;
+      }
+      h1 {
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+        color: #38bdf8;
+      }
+      h2 {
+        font-size: 1.2rem;
+        margin: 1.5rem 0 0.75rem;
+        color: #94a3b8;
+      }
+      .container {
+        max-width: 480px;
+        width: 100%;
+      }
+      .card {
+        background: #1e293b;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid #334155;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin-bottom: 0.25rem;
+      }
+      input {
+        width: 100%;
+        padding: 0.6rem 0.8rem;
+        border-radius: 8px;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
+        outline: none;
+      }
+      input:focus {
+        border-color: #38bdf8;
+      }
+      button,
+      .btn {
+        display: inline-block;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        border: none;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        text-align: center;
+        transition: opacity 0.2s;
+      }
+      button:hover,
+      .btn:hover {
+        opacity: 0.85;
+      }
+      .btn-blue {
+        background: #2563eb;
+        color: #fff;
+      }
+      .btn-green {
+        background: #16a34a;
+        color: #fff;
+      }
+      .btn-gray {
+        background: #475569;
+        color: #e2e8f0;
+      }
+      .btn-red {
+        background: #dc2626;
+        color: #fff;
+      }
+      .btn-github {
+        background: #24292f;
+        color: #fff;
+      }
+      .btn-block {
+        width: 100%;
+        margin-top: 0.5rem;
+      }
+      #status {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 8px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        white-space: pre-wrap;
+        font-family: 'Fira Code', monospace;
+        font-size: 0.85rem;
+        min-height: 60px;
+        color: #a5f3fc;
+      }
+      .session-item {
+        background: #0f172a;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.8rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .session-item.current {
+        border: 1px solid #38bdf8;
+      }
+      .hidden {
+        display: none;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .row > * {
+        flex: 1;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid #334155;
+        margin: 1rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🐸 Frogger Auth Test</h1>
+      <p style="color: #64748b; margin-bottom: 1rem">
+        Minimal frontend for testing all 3 auth methods
+      </p>
+
+      <!-- ── Email Register ── -->
+      <h2>📧 Email — Register</h2>
+      <div class="card">
+        <label>Username</label>
+        <input id="regUsername" placeholder="froggy" />
+        <label>Email</label>
+        <input id="regEmail" type="email" placeholder="you@example.com" />
+        <label>Password</label>
+        <input
+          id="regPassword"
+          type="password"
+          placeholder="min 8 characters"
+        />
+        <button class="btn-green btn-block" onclick="doRegister()">
+          Register
+        </button>
+      </div>
+
+      <!-- ── Email Login ── -->
+      <h2>📧 Email — Login</h2>
+      <div class="card">
+        <label>Email</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" />
+        <label>Password</label>
+        <input id="loginPassword" type="password" placeholder="password" />
+        <button class="btn-blue btn-block" onclick="doLogin()">Login</button>
+      </div>
+
+      <!-- ── GitHub OAuth ── -->
+      <h2>🐙 GitHub OAuth</h2>
+      <div class="card">
+        <a id="githubBtn" class="btn btn-github btn-block" href="/auth/github"
+          >Login with GitHub</a
+        >
+      </div>
+
+      <!-- ── Telegram ── -->
+      <h2>✈️ Telegram Login</h2>
+      <div class="card">
+        <div id="telegramWidgetContainer"></div>
+        <script
+          async
+          src="https://telegram.org/js/telegram-widget.js?22"
+          data-telegram-login="frogger_authbot"
+          data-size="large"
+          data-onauth="onTelegramAuth(user)"
+          data-request-access="write"
+        ></script>
+      </div>
+
+      <hr />
+
+      <!-- ── Session Info ── -->
+      <h2>👤 Session</h2>
+      <div class="card">
+        <div class="row">
+          <button class="btn-blue" onclick="doMe()">Who am I?</button>
+          <button class="btn-red" onclick="doLogout()">Logout</button>
+        </div>
+        <div class="row" style="margin-top: 0.5rem">
+          <button class="btn-gray" onclick="doListSessions()">
+            List Sessions
+          </button>
+          <button class="btn-red" onclick="doLogoutAll()">Logout All</button>
+        </div>
+      </div>
+
+      <div id="sessionsContainer" class="hidden"></div>
+
+      <!-- ── Response Output ── -->
+      <h2>📋 Response</h2>
+      <div id="status">Waiting…</div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      // API is same origin (served from the backend)
+      const api = () => window.location.origin;
+      const log = (data) => {
+        $('status').textContent =
+          typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      };
+
+      async function request(method, path, body) {
+        try {
+          const opts = {
+            method,
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+          };
+          if (body) opts.body = JSON.stringify(body);
+          const res = await fetch(`${api()}${path}`, opts);
+          const json = await res
+            .json()
+            .catch(() => ({ status: res.status, statusText: res.statusText }));
+          log(json);
+          return json;
+        } catch (err) {
+          log(`Error: ${err.message}`);
+        }
+      }
+
+      function doRegister() {
+        request('POST', '/auth/register', {
+          username: $('regUsername').value,
+          email: $('regEmail').value,
+          password: $('regPassword').value,
+        });
+      }
+
+      function doLogin() {
+        request('POST', '/auth/login', {
+          email: $('loginEmail').value,
+          password: $('loginPassword').value,
+        });
+      }
+
+      window.onTelegramAuth = function (user) {
+        log('Telegram data received, sending to backend…');
+        request('POST', '/auth/telegram', user);
+      };
+
+      function doMe() {
+        request('GET', '/auth/me');
+      }
+      function doLogout() {
+        request('POST', '/auth/logout');
+      }
+      function doLogoutAll() {
+        request('POST', '/auth/logout/all');
+      }
+
+      async function doListSessions() {
+        const data = await request('GET', '/auth/sessions');
+        if (!data?.sessions) return;
+        const container = $('sessionsContainer');
+        container.classList.remove('hidden');
+        container.innerHTML =
+          '<h2 style="margin:1rem 0 0.5rem;color:#94a3b8;">Active Sessions</h2>';
+        data.sessions.forEach((s) => {
+          const isCurrent = s.sessionId === data.currentSessionId;
+          const div = document.createElement('div');
+          div.className = `session-item${isCurrent ? ' current' : ''}`;
+          div.innerHTML = `
+            <div>
+              <div>${isCurrent ? '🟢 Current' : '⚪'} ${s.ip ?? 'unknown IP'}</div>
+              <div style="color:#64748b;font-size:0.75rem;">${s.userAgent ?? ''}</div>
+            </div>
+            ${!isCurrent ? `<button class="btn-red" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="destroySession('${s.sessionId}')">Kill</button>` : ''}
+          `;
+          container.appendChild(div);
+        });
+      }
+
+      function destroySession(sid) {
+        request('DELETE', `/auth/sessions/${sid}`).then(() => doListSessions());
+      }
+
+      // Auto-detect GitHub OAuth success redirect
+      if (
+        window.location.pathname === '/auth/success' ||
+        window.location.pathname === '/test/auth/success'
+      ) {
+        log('GitHub OAuth successful! Checking session…');
+        setTimeout(() => doMe(), 500);
+      }
+    </script>
+  </body>
+</html>

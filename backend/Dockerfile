@@ -40,6 +40,9 @@ COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/clie
 # Copy built application
 COPY --from=builder /app/dist ./dist
 
+# Copy public static files (test frontend)
+COPY public ./public
+
 ENV NODE_ENV=production
 ENV PORT=3000
 
