@@ -2,7 +2,9 @@
 
 ## What Is This Project?
 
-**Frogger Backend** is a social-platform API built with [NestJS](https://nestjs.com/) (v11) and [TypeScript](https://www.typescriptlang.org/) (v5.7). It provides a passwordless authentication system (OTP + WebAuthn passkeys), session management backed by PostgreSQL, and a data model for posts, comments, polls, notifications, and more.
+**Frogger Backend** is a social-platform API built with [NestJS](https://nestjs.com/) (v11) and [TypeScript](https://www.typescriptlang.org/) (v5.7). It provides a multi-method authentication system (Email+Password, GitHub OAuth, Telegram Login Widget), session management backed by PostgreSQL, and a data model for posts, comments, likes, bookmarks, reactions, polls, notifications, and more.
+
+The backend is deployed to **Fly.io** at `https://frogger-backend.fly.dev`.
 
 ---
 
@@ -10,16 +12,18 @@
 
 | Layer | Technology | Version | Purpose |
 |---|---|---|---|
-| **Runtime** | Node.js | ≥ 18 | JavaScript runtime |
+| **Runtime** | Node.js | 20(LTS) | JavaScript runtime |
 | **Framework** | NestJS | 11.0.1 | Modular, decorator-driven HTTP framework |
 | **Language** | TypeScript | 5.7.3 | Static typing, ESM-style module resolution |
 | **ORM** | Prisma | 7.4.1 | PostgreSQL client with type-safe queries |
-| **Database** | PostgreSQL | — | Primary data store (via Prisma Accelerate) |
-| **Auth** | @simplewebauthn/server | 13.2.3 | WebAuthn / passkey registration & login |
+| **Database** | PostgreSQL | — | Primary data store (Supabase, `@prisma/adapter-pg`) |
+| **Auth** | bcrypt | 6.0.0 | Password hashing for email+password auth |
 | **Sessions** | express-session | 1.19.0 | Cookie-based sessions, custom Prisma store |
 | **Testing** | Jest + ts-jest | 30 / 29 | Unit & E2E testing |
 | **Linting** | ESLint + Prettier | 9 / 3 | Code quality & formatting |
-| **Realtime** | Socket.IO / @nestjs/websockets | 4.8 / 11.1 | WebSocket support (scaffolded) |
+| **Realtime** | Socket.IO / @nestjs/websockets | 4.8 / 11.1 | WebSocket log broadcasting |
+| **Static Files** | @nestjs/serve-static | — | Serves test frontend at `/test/` |
+| **Deployment** | Fly.io + Docker | — | Production hosting |
 
 ---
 
@@ -28,29 +32,34 @@
 ```
 backend/
 ├── docs/                          # ← You are here
+├── public/
+│   └── test/
+│       ├── index.html             # Auth test frontend (served at /test/)
+│       └── auth/success/
+│           └── index.html         # GitHub OAuth redirect landing
 ├── prisma/
 │   ├── schema.prisma              # Database models (22 tables)
 │   └── prisma.service.ts          # NestJS-injectable PrismaClient
 ├── src/
 │   ├── main.ts                    # Application bootstrap & middleware
-│   ├── app.module.ts              # Root module
+│   ├── app.module.ts              # Root module (+ ServeStaticModule)
 │   ├── app.controller.ts          # Root GET / endpoint
 │   ├── app.service.ts             # Root service
 │   ├── auth/
 │   │   ├── auth.module.ts         # Auth feature module
-│   │   ├── auth.controller.ts     # 9 REST endpoints
-│   │   ├── otp.service.ts         # OTP generation & verification
-│   │   ├── webauthn.service.ts    # Passkey registration & authentication
+│   │   ├── auth.controller.ts     # 10 REST endpoints
+│   │   ├── email-auth.service.ts  # Email+Password registration & login (bcrypt)
+│   │   ├── github-auth.service.ts # GitHub OAuth authorization code flow
+│   │   ├── telegram-auth.service.ts # Telegram Login Widget HMAC verification
 │   │   ├── session.service.ts     # Session CRUD helpers
 │   │   ├── prisma-session-store.ts# express-session Store via Prisma
 │   │   ├── guards/
 │   │   │   ├── session.guard.ts   # Reusable auth guard
 │   │   │   └── index.ts           # Barrel re-export
 │   │   ├── dto/
-│   │   │   ├── send-otp.dto.ts
-│   │   │   ├── verify-otp.dto.ts
-│   │   │   ├── verify-registration.dto.ts
-│   │   │   ├── verify-authentication.dto.ts
+│   │   │   ├── register.dto.ts
+│   │   │   ├── login.dto.ts
+│   │   │   ├── telegram-auth.dto.ts
 │   │   │   └── index.ts           # Barrel re-export
 │   │   └── types/
 │   │       └── session.d.ts       # SessionData augmentation
@@ -70,20 +79,41 @@ backend/
 │   │       ├── create-post.dto.ts
 │   │       ├── update-post.dto.ts
 │   │       └── index.ts           # Barrel re-export
-│   └── comments/
-│       ├── comments.module.ts     # Comments feature module
-│       ├── comments.controller.ts # 4 REST endpoints
-│       ├── comments.service.ts    # Comment CRUD with pagination & ownership
-│       └── dto/
-│           ├── create-comment.dto.ts
-│           ├── update-comment.dto.ts
-│           └── index.ts           # Barrel re-export
+│   ├── comments/
+│   │   ├── comments.module.ts     # Comments feature module
+│   │   ├── comments.controller.ts # 4 REST endpoints
+│   │   ├── comments.service.ts    # Comment CRUD with pagination & ownership
+│   │   └── dto/
+│   │       ├── create-comment.dto.ts
+│   │       ├── update-comment.dto.ts
+│   │       └── index.ts           # Barrel re-export
+│   ├── likes/
+│   │   ├── likes.module.ts        # Likes feature module
+│   │   ├── likes.controller.ts    # 3 REST endpoints
+│   │   └── likes.service.ts       # Like/unlike logic
+│   ├── bookmarks/
+│   │   ├── bookmarks.module.ts    # Bookmarks feature module
+│   │   ├── bookmarks.controller.ts # 3 REST endpoints
+│   │   └── bookmarks.service.ts   # Bookmark logic
+│   ├── reactions/
+│   │   ├── reactions.module.ts    # Reactions feature module
+│   │   ├── reactions.controller.ts # 3 REST endpoints
+│   │   ├── reactions.service.ts   # Reaction logic
+│   │   └── dto/
+│   │       ├── create-reaction.dto.ts
+│   │       └── index.ts           # Barrel re-export
+│   └── logs/
+│       ├── logs.module.ts         # Logs feature module
+│       ├── logs.controller.ts     # GET /logs dashboard
+│       ├── logs.gateway.ts        # WebSocket gateway for log streaming
+│       └── websocket-logger.ts    # Custom NestJS logger → WebSocket
 ├── test/
-│   ├── unit/                      # 130 unit tests
+│   ├── unit/                      # 165 unit tests (20 suites)
 │   │   ├── app.controller.spec.ts
 │   │   ├── auth/
-│   │   │   ├── otp.service.spec.ts
-│   │   │   ├── webauthn.service.spec.ts
+│   │   │   ├── email-auth.service.spec.ts
+│   │   │   ├── github-auth.service.spec.ts
+│   │   │   ├── telegram-auth.service.spec.ts
 │   │   │   ├── session.service.spec.ts
 │   │   │   ├── auth.controller.spec.ts
 │   │   │   ├── prisma-session-store.spec.ts
@@ -95,12 +125,22 @@ backend/
 │   │   ├── posts/
 │   │   │   ├── posts.service.spec.ts
 │   │   │   └── posts.controller.spec.ts
-│   │   └── comments/
-│   │       ├── comments.service.spec.ts
-│   │       └── comments.controller.spec.ts
-│   ├── e2e/                       # 11 E2E tests
+│   │   ├── comments/
+│   │   │   ├── comments.service.spec.ts
+│   │   │   └── comments.controller.spec.ts
+│   │   ├── likes/
+│   │   │   ├── likes.service.spec.ts
+│   │   │   └── likes.controller.spec.ts
+│   │   ├── bookmarks/
+│   │   │   ├── bookmarks.service.spec.ts
+│   │   │   └── bookmarks.controller.spec.ts
+│   │   └── reactions/
+│   │       ├── reactions.service.spec.ts
+│   │       └── reactions.controller.spec.ts
+│   ├── e2e/                       # 63 E2E tests (3 suites)
 │   │   ├── app.e2e-spec.ts
-│   │   └── auth.e2e-spec.ts
+│   │   ├── auth.e2e-spec.ts
+│   │   └── integration.e2e-spec.ts
 │   └── jest-e2e.json              # E2E Jest config
 ├── db_scheme/
 │   └── db_schema.csv              # Original CSV schema reference
@@ -120,9 +160,9 @@ backend/
 |---|---|---|
 | `npm run start:dev` | `nest start --watch` | Start with hot-reload |
 | `npm run build` | `nest build` | Compile TypeScript to `dist/` |
-| `npm run start:prod` | `node dist/main` | Run compiled output |
-| `npm test` | `jest` | Run unit tests (130 specs) |
-| `npm run test:e2e` | `jest --config ./test/jest-e2e.json` | Run E2E tests (11 specs) |
+| `npm run start:prod` | `node dist/src/main.js` | Run compiled output |
+| `npm test` | `jest` | Run unit tests (165 specs) |
+| `npm run test:e2e` | `jest --config ./test/jest-e2e.json` | Run E2E tests (63 specs) |
 | `npm run test:cov` | `jest --coverage` | Unit tests with coverage report |
 | `npm run lint` | `eslint ... --fix` | Lint & auto-fix all source |
 | `npm run format` | `prettier --write ...` | Format source with Prettier |
@@ -133,14 +173,17 @@ backend/
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `DATABASE_URL` | **Yes** | — | PostgreSQL connection string (Prisma) |
+| `DATABASE_URL` | **Yes** | — | PostgreSQL pooled connection string (port 6543) |
+| `DIRECT_URL` | **Yes** | — | PostgreSQL direct connection (port 5432, for Prisma CLI) |
 | `SESSION_SECRET` | **Yes** (in prod) | `change-me-in-production` | Secret for signing session cookies |
-| `CORS_ORIGIN` | No | `http://localhost:5173` | Allowed CORS origin (frontend URL) |
+| `GITHUB_CLIENT_ID` | **Yes** | — | GitHub OAuth App client ID |
+| `GITHUB_CLIENT_SECRET` | **Yes** | — | GitHub OAuth App client secret |
+| `GITHUB_CALLBACK_URL` | **Yes** | — | GitHub OAuth redirect URI (e.g. `http://localhost:3000/auth/github/callback`) |
+| `TELEGRAM_BOT_TOKEN` | **Yes** | — | Telegram bot token for Login Widget HMAC verification |
+| `FRONTEND_URL` | No | `http://localhost:5173` | Frontend URL (used for GitHub OAuth redirect after login) |
+| `CORS_ORIGIN` | No | `http://localhost:5173` | Allowed CORS origin |
 | `PORT` | No | `3000` | HTTP listen port |
 | `NODE_ENV` | No | — | `production` enables secure cookies |
-| `RP_NAME` | No | `Frogger` | WebAuthn Relying Party name |
-| `RP_ID` | No | `localhost` | WebAuthn Relying Party ID (domain) |
-| `ORIGIN` | No | `http://localhost:3000` | WebAuthn expected origin |
 
 ---
 

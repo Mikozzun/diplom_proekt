@@ -62,7 +62,7 @@ All models follow consistent conventions:
 | `@map("snake_case")` on fields | `userId → @map("user_id")` | TypeScript uses camelCase, DB columns stay snake_case |
 | `@@map("table_name")` on models | `User → @@map("users")` | Model names are PascalCase, table names are pluralized snake_case |
 | `DateTime? @default(now())` | `createdAt` | Auto-populated timestamps, nullable for flexibility |
-| `onDelete: Cascade` | `Credential` → `User` | Deleting a user removes their credentials |
+| `onDelete: Cascade` | `Like` → `User` | Deleting a user removes their likes |
 
 ---
 
@@ -72,12 +72,8 @@ All models follow consistent conventions:
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                        USERS & AUTHENTICATION                               │
 │                                                                              │
-│  ┌──────────┐   1:N   ┌──────────────┐                                       │
-│  │   User   │────────▶│  Credential  │  (WebAuthn public keys)               │
-│  │          │   1:N   ├──────────────┤                                       │
-│  │          │────────▶│ OtpChallenge │  (standalone, no FK to User)           │
-│  │          │   1:1   ├──────────────┤                                       │
-│  │          │────────▶│   Admin      │                                       │
+│  ┌──────────┐   1:1   ┌──────────────┐                                       │
+│  │   User   │────────▶│   Admin      │                                       │
 │  │          │   1:N   ├──────────────┤                                       │
 │  │          │────────▶│  UserRole    │◀────────│ Role │                       │
 │  │          │   1:1   ├──────────────┤                                       │
@@ -120,42 +116,17 @@ The central entity. Every person who registers gets a User record.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | `BigInt` | Auto-incrementing PK |
-| `phoneNumber` | `String` | Unique identifier (used for OTP + WebAuthn) |
-| `passkey` | `String` | Legacy column — not used with WebAuthn |
-| `username` | `String` | Display name (defaults to phone number at creation) |
+| `email` | `String?` | Unique email (used for email+password auth) |
+| `passwordHash` | `String?` | bcrypt-hashed password |
+| `username` | `String` | Display name |
 | `profileImage` | `String?` | Optional avatar URL |
+| `githubId` | `String?` | Unique GitHub user ID (for OAuth login) |
+| `telegramId` | `String?` | Unique Telegram user ID (for Login Widget) |
 | `createdAt` | `DateTime?` | Registration timestamp |
 
-**Relations:** A User has many Posts, Comments, Likes, Bookmarks, Reactions, Notifications, Storage files, ActivityLogs, PollResponses, Reports, UserRoles, Credentials, and UserPostRandomizations. One-to-one with Admin and UserSettings.
+**Relations:** A User has many Posts, Comments, Likes, Bookmarks, Reactions, Notifications, Storage files, ActivityLogs, PollResponses, Reports, UserRoles, and UserPostRandomizations. One-to-one with Admin and UserSettings.
 
-#### `Credential` → `credentials`
-
-Stores WebAuthn public key credentials (passkeys).
-
-| Field | Type | Notes |
-|---|---|---|
-| `id` | `BigInt` | PK |
-| `userId` | `BigInt` | FK → `users.id` (Cascade delete) |
-| `credentialId` | `String` | `@unique` — the browser-generated credential ID |
-| `credentialPublicKey` | `Bytes` | CBOR-encoded public key |
-| `counter` | `BigInt` | Signature counter (replay protection) |
-| `transports` | `String[]` | e.g. `["internal", "hybrid"]` |
-| `createdAt` | `DateTime?` | When the passkey was registered |
-
-A User can have multiple credentials (e.g. phone + laptop + security key).
-
-#### `OtpChallenge` → `otp_challenges`
-
-Stores one-time password challenges. **No FK to User** — OTPs are created before the user exists.
-
-| Field | Type | Notes |
-|---|---|---|
-| `phoneNumber` | `String` | Phone the OTP was sent to |
-| `code` | `String` | 6-digit code |
-| `expiresAt` | `DateTime` | TTL (5 minutes from creation) |
-| `verified` | `Boolean` | Set to `true` once used |
-
-Has a composite index on `(phoneNumber, code)` for fast lookup.
+> **Note:** The `email`, `githubId`, and `telegramId` fields are all optional and each `@unique`. A user can authenticate via any combination of these methods. Account linking is handled at the service level (e.g., GitHub OAuth links to an existing email-based account if the emails match).
 
 #### `Session` → `sessions`
 

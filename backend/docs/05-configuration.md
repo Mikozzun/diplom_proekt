@@ -155,3 +155,74 @@ app.enableCors({
 | `credentials: true` | Always | Required for cross-origin cookies (session cookie) |
 
 > Without `credentials: true`, the browser won't include the `connect.sid` session cookie in cross-origin requests, and authentication will silently fail.
+
+> **Note:** When serving the test frontend from the backend itself (via `ServeStaticModule`), CORS is not needed for those requests since they are same-origin. The CORS setting remains for any separate frontend deployments.
+
+---
+
+## Deployment Configuration
+
+### Dockerfile
+
+Multi-stage build for production:
+
+```dockerfile
+FROM node:20-slim AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npx prisma generate
+RUN npm run build
+
+FROM node:20-slim AS runner
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY public ./public
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "dist/src/main.js"]
+```
+
+Key decisions:
+- **Two-stage build** — `builder` installs all deps + compiles; `runner` copies only what's needed
+- `npx prisma generate` — Required in the builder stage so the generated Prisma Client is included in `node_modules`
+- `COPY public ./public` — Copies the test frontend so `ServeStaticModule` can serve it
+- `dist/src/main.js` — The compiled entry point (entrypoint is `src/main.ts` → `dist/src/main.js`)
+
+### Fly.io (`fly.toml`)
+
+```toml
+app = 'frogger-backend'
+primary_region = 'ams'
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+```
+
+The app is deployed to Fly.io's Amsterdam region. `internal_port = 3000` matches the NestJS listen port. HTTPS is enforced via `force_https = true`.
+
+### Environment Variables (Production)
+
+Fly.io secrets are set via `fly secrets set`:
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Supabase pooled connection (port 6543) |
+| `DIRECT_URL` | Supabase direct connection (port 5432) |
+| `SESSION_SECRET` | Secure random session signing key |
+| `GITHUB_CLIENT_ID` | GitHub OAuth App client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret |
+| `GITHUB_CALLBACK_URL` | `https://frogger-backend.fly.dev/auth/github/callback` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token for login widget |
+| `FRONTEND_URL` | `https://frogger-backend.fly.dev/test` |
+| `CORS_ORIGIN` | `https://frogger-backend.fly.dev` |
+| `NODE_ENV` | `production` |

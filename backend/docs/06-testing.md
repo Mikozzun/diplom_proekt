@@ -2,12 +2,12 @@
 
 ## Overview
 
-The project has **141 tests** organized into two categories:
+The project has **228 tests** organized into two categories:
 
 | Category | Location | Count | Config | Runner |
 |---|---|---|---|---|
-| **Unit tests** | `test/unit/` | 130 | `package.json` → `jest` section | `npm test` |
-| **E2E tests** | `test/e2e/` | 11 | `test/jest-e2e.json` | `npm run test:e2e` |
+| **Unit tests** | `test/unit/` | 165 | `package.json` → `jest` section | `npm test` |
+| **E2E tests** | `test/e2e/` | 63 | `test/jest-e2e.json` | `npm run test:e2e` |
 
 All tests use **Jest 30** with **ts-jest** for TypeScript compilation.
 
@@ -18,27 +18,38 @@ All tests use **Jest 30** with **ts-jest** for TypeScript compilation.
 ```
 test/
 ├── unit/
-│   ├── app.controller.spec.ts           (1 test)
+│   ├── app.controller.spec.ts              (1 test)
 │   ├── auth/
-│   │   ├── otp.service.spec.ts          (8 tests)
-│   │   ├── webauthn.service.spec.ts     (11 tests)
-│   │   ├── session.service.spec.ts      (11 tests)
-│   │   ├── auth.controller.spec.ts      (20 tests)
-│   │   ├── prisma-session-store.spec.ts (16 tests)
+│   │   ├── email-auth.service.spec.ts      (8 tests)
+│   │   ├── github-auth.service.spec.ts     (11 tests)
+│   │   ├── telegram-auth.service.spec.ts   (9 tests)
+│   │   ├── session.service.spec.ts         (11 tests)
+│   │   ├── auth.controller.spec.ts         (20 tests)
+│   │   ├── prisma-session-store.spec.ts    (16 tests)
 │   │   └── guards/
-│   │       └── session.guard.spec.ts    (6 tests)
+│   │       └── session.guard.spec.ts       (6 tests)
 │   ├── users/
-│   │   ├── users.service.spec.ts        (10 tests)
-│   │   └── users.controller.spec.ts     (5 tests)
+│   │   ├── users.service.spec.ts           (10 tests)
+│   │   └── users.controller.spec.ts        (5 tests)
 │   ├── posts/
-│   │   ├── posts.service.spec.ts        (16 tests)
-│   │   └── posts.controller.spec.ts     (7 tests)
-│   └── comments/
-│       ├── comments.service.spec.ts     (14 tests)
-│       └── comments.controller.spec.ts  (6 tests)
+│   │   ├── posts.service.spec.ts           (16 tests)
+│   │   └── posts.controller.spec.ts        (7 tests)
+│   ├── comments/
+│   │   ├── comments.service.spec.ts        (14 tests)
+│   │   └── comments.controller.spec.ts     (6 tests)
+│   ├── likes/
+│   │   ├── likes.service.spec.ts           (8 tests)
+│   │   └── likes.controller.spec.ts        (5 tests)
+│   ├── bookmarks/
+│   │   ├── bookmarks.service.spec.ts       (8 tests)
+│   │   └── bookmarks.controller.spec.ts    (5 tests)
+│   └── reactions/
+│       ├── reactions.service.spec.ts       (5 tests)
+│       └── reactions.controller.spec.ts    (4 tests)
 ├── e2e/
-│   ├── app.e2e-spec.ts                  (1 test)
-│   └── auth.e2e-spec.ts                 (10 tests)
+│   ├── app.e2e-spec.ts                     (1 test)
+│   ├── auth.e2e-spec.ts                    (22 tests)
+│   └── integration.e2e-spec.ts             (40 tests)
 └── jest-e2e.json
 ```
 
@@ -150,41 +161,41 @@ Each Prisma model method is mocked with `jest.fn()`:
 
 ```typescript
 const prisma = {
-  otpChallenge: {
+  user: {
+    findUnique: jest.fn(),
     create: jest.fn(),
-    findFirst: jest.fn(),
     update: jest.fn(),
   },
 };
 
 // In the test:
-prisma.otpChallenge.create.mockResolvedValue({
+prisma.user.findUnique.mockResolvedValue(null); // No existing user
+prisma.user.create.mockResolvedValue({
   id: 1n,
-  phoneNumber: '+1234567890',
-  code: '123456',
-  expiresAt: new Date(),
+  email: 'test@example.com',
+  username: 'testuser',
+  passwordHash: '$2b$10$...',
 });
 ```
 
 ### 3. Testing Async Service Methods
 
 ```typescript
-it('should return true for valid OTP', async () => {
-  prisma.otpChallenge.findFirst.mockResolvedValue({
+it('should login with valid credentials', async () => {
+  prisma.user.findUnique.mockResolvedValue({
     id: 1n,
-    phoneNumber: '+1234567890',
-    code: '123456',
-    verified: false,
-    expiresAt: new Date(Date.now() + 300_000),
+    email: 'test@example.com',
+    username: 'testuser',
+    passwordHash: '$2b$10$hashedvalue',
   });
-  prisma.otpChallenge.update.mockResolvedValue({ id: 1n, verified: true });
 
-  const result = await service.verifyOtp('+1234567890', '123456');
+  // bcrypt.compare is also mocked in the test setup
+  const result = await service.login('test@example.com', 'password123');
 
-  expect(result).toBe(true);
-  expect(prisma.otpChallenge.update).toHaveBeenCalledWith({
-    where: { id: 1n },
-    data: { verified: true },
+  expect(result.userId).toBe('1');
+  expect(result.email).toBe('test@example.com');
+  expect(prisma.user.findUnique).toHaveBeenCalledWith({
+    where: { email: 'test@example.com' },
   });
 });
 ```
@@ -197,14 +208,16 @@ it('should return true for valid OTP', async () => {
 ### 4. Testing Controllers with Mocked Services
 
 ```typescript
-const otpService = { sendOtp: jest.fn(), verifyOtp: jest.fn() };
-const webAuthnService = { generateRegistrationOptions: jest.fn(), /* ... */ };
+const emailAuth = { register: jest.fn(), login: jest.fn() };
+const githubAuth = { getAuthorizationUrl: jest.fn(), handleCallback: jest.fn() };
+const telegramAuth = { authenticate: jest.fn() };
 
 const module = await Test.createTestingModule({
   controllers: [AuthController],
   providers: [
-    { provide: OtpService, useValue: otpService },
-    { provide: WebAuthnService, useValue: webAuthnService },
+    { provide: EmailAuthService, useValue: emailAuth },
+    { provide: GithubAuthService, useValue: githubAuth },
+    { provide: TelegramAuthService, useValue: telegramAuth },
     { provide: SessionService, useValue: sessionService },
   ],
 }).compile();
@@ -218,8 +231,7 @@ Controllers are tested by mocking all services, so you verify **orchestration lo
 const mockRequest = (): Request => {
   const session = {
     userId: undefined,
-    phoneNumber: undefined,
-    verifiedPhone: undefined,
+    email: undefined,
     destroy: jest.fn((cb) => cb()),
   };
   return {
@@ -302,24 +314,22 @@ it('should delete expired sessions on timer tick', async () => {
 });
 ```
 
-### 9. Mocking ES Modules (`jest.mock`)
+### 9. Mocking External Modules (`jest.mock`)
 
-The WebAuthn service uses functions from `@simplewebauthn/server`. These are mocked at the module level:
+The email auth service uses `bcrypt` for password hashing. This is mocked at the module level:
 
 ```typescript
-jest.mock('@simplewebauthn/server', () => ({
-  generateRegistrationOptions: jest.fn(),
-  verifyRegistrationResponse: jest.fn(),
-  generateAuthenticationOptions: jest.fn(),
-  verifyAuthenticationResponse: jest.fn(),
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
 }));
 
 // Later, in tests:
-(generateRegistrationOptions as jest.Mock).mockResolvedValue({
-  challenge: 'test-challenge',
-  rp: { name: 'Frogger', id: 'localhost' },
-});
+(bcrypt.hash as jest.Mock).mockResolvedValue('$2b$10$hashed');
+(bcrypt.compare as jest.Mock).mockResolvedValue(true);
 ```
+
+Similarly, the Telegram auth service uses Node.js `crypto` module which can be mocked for deterministic HMAC testing.
 
 ---
 
@@ -354,11 +364,12 @@ await app.init();
 
 ```typescript
 const response = await request(app.getHttpServer())
-  .post('/auth/otp/send')
-  .send({ phoneNumber: '+1234567890' })
-  .expect(HttpStatus.OK);
+  .post('/auth/register')
+  .send({ email: 'test@example.com', password: 'password123', username: 'testuser' })
+  .expect(HttpStatus.CREATED);
 
-expect(response.body).toEqual({ message: 'OTP sent successfully' });
+expect(response.body).toHaveProperty('userId');
+expect(response.body.email).toBe('test@example.com');
 ```
 
 ### 3. Cookie/Session Persistence with Agent
@@ -368,9 +379,9 @@ To maintain cookies across requests (simulating a browser session):
 ```typescript
 const agent = request.agent(app.getHttpServer());
 
-// Request 1: Verify OTP (sets session cookie)
-await agent.post('/auth/otp/verify')
-  .send({ phoneNumber: '+1234567890', code: '999999' });
+// Request 1: Login (sets session cookie)
+await agent.post('/auth/login')
+  .send({ email: 'test@example.com', password: 'password123' });
 
 // Request 2: Uses same cookie automatically
 await agent.get('/auth/me');
@@ -394,10 +405,11 @@ Without a session cookie, the `SessionGuard` rejects the request with 401.
 
 | Component | Tests | What's Covered |
 |---|---|---|
-| **OtpService** (8) | Code generation, expiry, verification success/failure, code reuse prevention |
-| **WebAuthnService** (11) | Registration options (new + existing user), verification (success + failure), authentication options, assertion verification, credential counter update |
+| **EmailAuthService** (8) | Registration (success, duplicate email), login (success, wrong password, no user), bcrypt hashing, validation |
+| **GithubAuthService** (11) | Authorization URL generation, code exchange (success, failure), user profile fetch, email fetch, user upsert, account linking |
+| **TelegramAuthService** (9) | HMAC verification (valid, invalid), auth_date freshness, user upsert by telegramId, display name fallback |
 | **SessionService** (11) | Session creation (IP fallback), listing with JSON parsing, malformed data handling, single/bulk session destruction |
-| **AuthController** (20) | All 9 endpoints, error paths (invalid OTP, missing phone, session ownership), session destruction success/failure |
+| **AuthController** (20) | All 10 endpoints, error paths (invalid credentials, missing code, session ownership), session destruction success/failure |
 | **PrismaSessionStore** (16) | get/set/destroy/touch operations, expired session cleanup, error handling, P2025 suppression, timer management |
 | **SessionGuard** (6) | Allow with userId, reject undefined/null/empty, error message, edge cases |
 | **UsersService** (10) | getProfile, getPublicProfile (with post count), updateProfile (username, image, empty DTO), getSettings (existing + auto-create defaults), updateSettings (theme, notifications) |
@@ -406,9 +418,16 @@ Without a session cookie, the `SessionGuard` rejects the request with 401.
 | **PostsController** (7) | POST create, GET list (no cursor, with cursor+limit), GET by user, GET single, PATCH update, DELETE remove |
 | **CommentsService** (14) | Create (success, empty content, post not found), findByPost (pagination, hasMore, post not found, cursor), update (success, empty, not found, forbidden), remove (success, not found, forbidden) |
 | **CommentsController** (6) | POST create, GET list (no cursor, with cursor+limit), PATCH update, DELETE remove |
+| **LikesService** (8) | Toggle like (create, delete), check like status, count likes, error handling |
+| **LikesController** (5) | POST toggle, GET status, GET count — with auth guard |
+| **BookmarksService** (8) | Toggle bookmark (create, delete), list bookmarks, check status, error handling |
+| **BookmarksController** (5) | POST toggle, GET list, GET status — with auth guard |
+| **ReactionsService** (5) | Add reaction, list reactions, remove reaction, error handling |
+| **ReactionsController** (4) | POST add, GET list, DELETE remove — with auth guard |
 | **AppController** (1) | GET / returns "Hello World!" |
 | **E2E App** (1) | Full HTTP GET / through the real app pipeline |
-| **E2E Auth** (10) | OTP send/verify, registration rejection, login options, 5 protected routes return 401, full OTP → WebAuthn flow |
+| **E2E Auth** (22) | Email register/login, protected routes return 401, session management, GitHub callback path, Telegram auth |
+| **E2E Integration** (40) | Full CRUD flows for posts, comments, likes, bookmarks, reactions across authenticated sessions |
 
 ---
 
@@ -422,7 +441,7 @@ npm test
 npx jest --verbose
 
 # Run a specific test file
-npx jest test/unit/auth/otp.service.spec.ts
+npx jest test/unit/auth/email-auth.service.spec.ts
 
 # Run with coverage
 npm run test:cov

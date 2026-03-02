@@ -25,7 +25,20 @@ A module is a class annotated with `@Module()`. It groups related controllers, s
 
 ```typescript
 @Module({
-  imports: [AuthModule, UsersModule, PostsModule, CommentsModule],
+  imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'public', 'test'),
+      serveRoot: '/test',
+    }),
+    AuthModule,
+    UsersModule,
+    PostsModule,
+    CommentsModule,
+    LikesModule,
+    BookmarksModule,
+    ReactionsModule,
+    LogsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
@@ -35,21 +48,28 @@ export class AppModule {}
 - `imports` — Other modules whose exported providers become available here
 - `controllers` — Classes that handle incoming HTTP requests
 - `providers` — Injectable classes (services, repositories, etc.)
+- `ServeStaticModule` — Serves the test frontend HTML from `public/test/` at the `/test/` route
 
 ### Feature Module — `AuthModule`
 
 ```typescript
 @Module({
   controllers: [AuthController],
-  providers: [OtpService, WebAuthnService, SessionService, PrismaService],
-  exports: [OtpService, WebAuthnService, SessionService],
+  providers: [
+    EmailAuthService,
+    GithubAuthService,
+    TelegramAuthService,
+    SessionService,
+    PrismaService,
+  ],
+  exports: [EmailAuthService, GithubAuthService, TelegramAuthService, SessionService],
 })
 export class AuthModule {}
 ```
 
-- Encapsulates all authentication logic
+- Encapsulates all authentication logic (3 auth methods + session management)
 - **Provides** `PrismaService` internally (services can inject it)
-- **Exports** three services so other modules can import `AuthModule` and use them
+- **Exports** four services so other modules can import `AuthModule` and use them
 
 ### Feature Module — `UsersModule`
 
@@ -96,29 +116,104 @@ export class CommentsModule {}
 - `CommentsController` has 4 endpoints (create, list by post, update, delete)
 - Ownership checks and empty-content validation
 
+### Feature Module — `LikesModule`
+
+```typescript
+@Module({
+  controllers: [LikesController],
+  providers: [LikesService, PrismaService],
+  exports: [LikesService],
+})
+export class LikesModule {}
+```
+
+- Like/unlike toggle for posts
+- `LikesController` has 3 endpoints (toggle like, check status, count)
+
+### Feature Module — `BookmarksModule`
+
+```typescript
+@Module({
+  controllers: [BookmarksController],
+  providers: [BookmarksService, PrismaService],
+  exports: [BookmarksService],
+})
+export class BookmarksModule {}
+```
+
+- Add/remove bookmarks for posts
+- `BookmarksController` has 3 endpoints (toggle bookmark, list bookmarks, check status)
+
+### Feature Module — `ReactionsModule`
+
+```typescript
+@Module({
+  controllers: [ReactionsController],
+  providers: [ReactionsService, PrismaService],
+  exports: [ReactionsService],
+})
+export class ReactionsModule {}
+```
+
+- Emoji reactions on posts (typed reactions beyond simple likes)
+- `ReactionsController` has 3 endpoints (add reaction, list reactions, remove reaction)
+
+### Feature Module — `LogsModule`
+
+```typescript
+@Module({
+  controllers: [LogsController],
+  providers: [LogsGateway, WebSocketLogger],
+})
+export class LogsModule {}
+```
+
+- Real-time log streaming via WebSocket (Socket.IO)
+- `LogsController` serves a dashboard HTML page at `GET /logs`
+- `LogsGateway` broadcasts log entries to connected clients
+- `WebSocketLogger` is a custom NestJS `LoggerService` that pipes logs to the WebSocket gateway
+
 ### Module Dependency Graph
 
 ```
 AppModule
+  ├── ServeStaticModule        ← serves public/test/ at /test/
   ├── AppController + AppService
   ├── AuthModule
   │     ├── AuthController
-  │     ├── OtpService        ← uses PrismaService
-  │     ├── WebAuthnService    ← uses PrismaService
-  │     ├── SessionService     ← uses PrismaService
-  │     └── PrismaService      ← extends PrismaClient
+  │     ├── EmailAuthService     ← uses PrismaService
+  │     ├── GithubAuthService    ← uses PrismaService
+  │     ├── TelegramAuthService  ← uses PrismaService
+  │     ├── SessionService       ← uses PrismaService
+  │     └── PrismaService        ← extends PrismaClient
   ├── UsersModule
-  │     ├── UsersController    ← uses UsersService
-  │     ├── UsersService       ← uses PrismaService
+  │     ├── UsersController      ← uses UsersService
+  │     ├── UsersService         ← uses PrismaService
   │     └── PrismaService
   ├── PostsModule
-  │     ├── PostsController    ← uses PostsService
-  │     ├── PostsService       ← uses PrismaService
+  │     ├── PostsController      ← uses PostsService
+  │     ├── PostsService         ← uses PrismaService
   │     └── PrismaService
-  └── CommentsModule
-        ├── CommentsController ← uses CommentsService
-        ├── CommentsService    ← uses PrismaService
-        └── PrismaService
+  ├── CommentsModule
+  │     ├── CommentsController   ← uses CommentsService
+  │     ├── CommentsService      ← uses PrismaService
+  │     └── PrismaService
+  ├── LikesModule
+  │     ├── LikesController      ← uses LikesService
+  │     ├── LikesService         ← uses PrismaService
+  │     └── PrismaService
+  ├── BookmarksModule
+  │     ├── BookmarksController  ← uses BookmarksService
+  │     ├── BookmarksService     ← uses PrismaService
+  │     └── PrismaService
+  ├── ReactionsModule
+  │     ├── ReactionsController  ← uses ReactionsService
+  │     ├── ReactionsService     ← uses PrismaService
+  │     └── PrismaService
+  └── LogsModule
+        ├── LogsController
+        ├── LogsGateway           ← WebSocket gateway
+        └── WebSocketLogger       ← Custom NestJS logger
 ```
 
 ---
@@ -171,7 +266,7 @@ The simplest controller — takes no input, delegates to `AppService`, returns a
 
 ### `AuthController`
 
-The main controller with 9 endpoints. See [Authentication docs](03-authentication.md) for full endpoint reference.
+The main controller with 10 endpoints. See [Authentication docs](03-authentication.md) for full endpoint reference.
 
 **Pattern:** The controller is a **thin orchestration layer**. It:
 1. Extracts input from the request (body, params, session)
@@ -239,13 +334,18 @@ export class OtpService {
 | Service | Dependencies | Pattern |
 |---|---|---|
 | `AppService` | None | Pure logic (returns "Hello World!") |
-| `OtpService` | `PrismaService` | DB operations (create/query OTP records) |
-| `WebAuthnService` | `PrismaService` | DB + external library (`@simplewebauthn/server`) |
+| `EmailAuthService` | `PrismaService` | DB operations + bcrypt hashing |
+| `GithubAuthService` | `PrismaService` | DB operations + GitHub API (fetch) |
+| `TelegramAuthService` | `PrismaService` | DB operations + HMAC verification (node:crypto) |
 | `SessionService` | `PrismaService` | DB operations (session CRUD) |
 | `UsersService` | `PrismaService` | DB operations (profile & settings CRUD) |
 | `PostsService` | `PrismaService` | DB operations (post CRUD, cursor pagination, ownership checks) |
 | `CommentsService` | `PrismaService` | DB operations (comment CRUD, cursor pagination, ownership checks) |
+| `LikesService` | `PrismaService` | DB operations (like/unlike toggle) |
+| `BookmarksService` | `PrismaService` | DB operations (bookmark CRUD) |
+| `ReactionsService` | `PrismaService` | DB operations (reaction CRUD) |
 | `PrismaService` | — | Infrastructure (extends `PrismaClient`) |
+| `WebSocketLogger` | `LogsGateway` | Custom logger → WebSocket broadcast |
 
 ### Constructor Injection
 
@@ -326,26 +426,29 @@ A DTO defines the **expected shape** of data entering the application. In NestJS
 
 ```
 src/auth/dto/
-  ├── send-otp.dto.ts              → { phoneNumber: string }
-  ├── verify-otp.dto.ts            → { phoneNumber: string, code: string }
-  ├── verify-registration.dto.ts   → { phoneNumber: string, credential: RegistrationResponseJSON }
-  ├── verify-authentication.dto.ts → { credential: AuthenticationResponseJSON }
-  └── index.ts                     → Barrel re-export
+  ├── register.dto.ts         → { email: string, password: string, username: string }
+  ├── login.dto.ts            → { email: string, password: string }
+  ├── telegram-auth.dto.ts    → { id: number, first_name?, last_name?, username?, photo_url?, auth_date: number, hash: string }
+  └── index.ts                → Barrel re-export
 
 src/users/dto/
-  ├── update-profile.dto.ts        → { username?: string, profileImage?: string }
-  ├── update-settings.dto.ts       → { theme?: string, notificationsEnabled?: boolean }
-  └── index.ts                     → Barrel re-export
+  ├── update-profile.dto.ts   → { username?: string, profileImage?: string }
+  ├── update-settings.dto.ts  → { theme?: string, notificationsEnabled?: boolean }
+  └── index.ts                → Barrel re-export
 
 src/posts/dto/
-  ├── create-post.dto.ts           → { content?: string, imageUrl?: string, videoUrl?: string }
-  ├── update-post.dto.ts           → { content?: string, imageUrl?: string, videoUrl?: string }
-  └── index.ts                     → Barrel re-export
+  ├── create-post.dto.ts      → { content?: string, imageUrl?: string, videoUrl?: string }
+  ├── update-post.dto.ts      → { content?: string, imageUrl?: string, videoUrl?: string }
+  └── index.ts                → Barrel re-export
 
 src/comments/dto/
-  ├── create-comment.dto.ts        → { content: string }
-  ├── update-comment.dto.ts        → { content: string }
-  └── index.ts                     → Barrel re-export
+  ├── create-comment.dto.ts   → { content: string }
+  ├── update-comment.dto.ts   → { content: string }
+  └── index.ts                → Barrel re-export
+
+src/reactions/dto/
+  ├── create-reaction.dto.ts  → { type: ReactionType }
+  └── index.ts                → Barrel re-export
 ```
 
 ### Barrel Export Pattern
@@ -354,11 +457,11 @@ The `index.ts` file re-exports all DTOs, enabling clean imports:
 
 ```typescript
 // Instead of:
-import { SendOtpDto } from './dto/send-otp.dto.js';
-import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
+import { LoginDto } from './dto/login.dto.js';
 
 // You can write:
-import { SendOtpDto, VerifyOtpDto } from './dto/index.js';
+import { RegisterDto, LoginDto, TelegramAuthDto } from './dto/index.js';
 ```
 
 ---
@@ -377,11 +480,10 @@ import 'express-session';
 declare module 'express-session' {
   interface SessionData {
     userId?: string;
-    phoneNumber?: string;
+    email?: string;
     userAgent?: string;
     ip?: string;
     createdAt?: number;
-    verifiedPhone?: string;
   }
 }
 ```
@@ -406,7 +508,7 @@ A complete request through the NestJS pipeline:
    │  └─ Populates req.session
       │
 3. NestJS Routing
-   │  └─ Matches @Controller('auth') + @Post('otp/send')
+   │  └─ Matches @Controller('auth') + @Post('register')
       │
 4. Guards (@UseGuards)
    │  └─ SessionGuard.canActivate()
@@ -479,10 +581,11 @@ NestFactory.create(AppModule)
   ├─ Reads @Module metadata
   ├─ Discovers AuthModule import
   │    ├─ Instantiates PrismaService (new PrismaClient + $connect)
-  │    ├─ Instantiates OtpService(PrismaService)
-  │    ├─ Instantiates WebAuthnService(PrismaService)
+  │    ├─ Instantiates EmailAuthService(PrismaService)
+  │    ├─ Instantiates GithubAuthService(PrismaService)
+  │    ├─ Instantiates TelegramAuthService(PrismaService)
   │    ├─ Instantiates SessionService(PrismaService)
-  │    └─ Instantiates AuthController(OtpService, WebAuthnService, SessionService)
+  │    └─ Instantiates AuthController(EmailAuth, GithubAuth, TelegramAuth, Session)
   │
   ├─ Discovers UsersModule import
   │    ├─ Instantiates PrismaService (singleton)
@@ -498,6 +601,23 @@ NestFactory.create(AppModule)
   │    ├─ Instantiates PrismaService (singleton)
   │    ├─ Instantiates CommentsService(PrismaService)
   │    └─ Instantiates CommentsController(CommentsService)
+  │
+  ├─ Discovers LikesModule import
+  │    ├─ Instantiates LikesService(PrismaService)
+  │    └─ Instantiates LikesController(LikesService)
+  │
+  ├─ Discovers BookmarksModule import
+  │    ├─ Instantiates BookmarksService(PrismaService)
+  │    └─ Instantiates BookmarksController(BookmarksService)
+  │
+  ├─ Discovers ReactionsModule import
+  │    ├─ Instantiates ReactionsService(PrismaService)
+  │    └─ Instantiates ReactionsController(ReactionsService)
+  │
+  ├─ Discovers LogsModule import
+  │    ├─ Instantiates WebSocketLogger(LogsGateway)
+  │    ├─ Instantiates LogsGateway()
+  │    └─ Instantiates LogsController()
   │
   ├─ Instantiates AppService()
   └─ Instantiates AppController(AppService)

@@ -2,205 +2,233 @@
 
 ## Architecture Overview
 
-The authentication system is **passwordless**, combining two independent factors:
+The authentication system supports **three independent methods**:
 
-1. **OTP (One-Time Password)** — Proves ownership of a phone number
-2. **WebAuthn / Passkeys** — Cryptographic proof of device possession
+1. **Email + Password** — Traditional registration and login with bcrypt-hashed passwords
+2. **GitHub OAuth** — Authorization code flow; redirects to GitHub, exchanges code for token
+3. **Telegram Login Widget** — HMAC-SHA-256 verification of Telegram-provided auth data
 
 Sessions are managed with **express-session** backed by a **custom PostgreSQL store** (no Redis dependency).
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     REGISTRATION FLOW                               │
-│                                                                     │
-│  Client                        Server                              │
-│  ──────                        ──────                              │
-│  1. Enter phone number ──────▶ POST /auth/otp/send                 │
-│                                 └─▶ Generate OTP, store in DB       │
-│                                 └─▶ Log to console (dev) / SMS      │
-│                                                                     │
-│  2. Enter received code ─────▶ POST /auth/otp/verify               │
-│                                 └─▶ Verify OTP in DB               │
-│                                 └─▶ Mark phone verified in session  │
-│                                 └─▶ Generate WebAuthn challenge     │
-│                                 ◀── Return registration options     │
-│                                                                     │
-│  3. navigator.credentials      POST /auth/register/verify          │
-│     .create() ───────────────▶  └─▶ Verify attestation             │
-│                                  └─▶ Create/find User record        │
-│                                  └─▶ Store Credential (public key)  │
-│                                  └─▶ Auto-login (create session)    │
-│                                  ◀── { verified, userId }           │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                 EMAIL + PASSWORD REGISTRATION                        │
+│                                                                      │
+│  Client                         Server                               │
+│  ──────                         ──────                               │
+│  1. Enter email, password, ───▶ POST /auth/register                  │
+│     username                     └─▶ Check email uniqueness          │
+│                                  └─▶ Hash password (bcrypt, 10 rds)  │
+│                                  └─▶ Create User record              │
+│                                  └─▶ Auto-login (create session)     │
+│                                  ◀── { userId, email, username }     │
+└──────────────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────────────┐
-│                        LOGIN FLOW                                   │
-│                                                                     │
-│  Client                        Server                              │
-│  ──────                        ──────                              │
-│  1. Click "Login" ───────────▶ GET /auth/login/options             │
-│                                 └─▶ Generate authentication options │
-│                                 └─▶ Store challenge in memory       │
-│                                 ◀── Return authentication options   │
-│                                                                     │
-│  2. navigator.credentials      POST /auth/login/verify             │
-│     .get() ──────────────────▶  └─▶ Look up credential in DB       │
-│                                  └─▶ Verify assertion + counter     │
-│                                  └─▶ Update counter (anti-replay)   │
-│                                  └─▶ Create session                 │
-│                                  ◀── { verified, userId }           │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                 EMAIL + PASSWORD LOGIN                                │
+│                                                                      │
+│  Client                         Server                               │
+│  ──────                         ──────                               │
+│  1. Enter email, password ────▶ POST /auth/login                     │
+│                                  └─▶ Find user by email              │
+│                                  └─▶ Verify password (bcrypt.compare)│
+│                                  └─▶ Create session                  │
+│                                  ◀── { userId, email, username }     │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                 GITHUB OAUTH FLOW                                    │
+│                                                                      │
+│  Client                         Server                               │
+│  ──────                         ──────                               │
+│  1. Click "Login with GitHub" ▶ GET /auth/github                     │
+│                                  └─▶ Redirect to GitHub authorize URL│
+│                                                                      │
+│  2. User authorizes on GitHub                                        │
+│     GitHub redirects to ────────▶ GET /auth/github/callback?code=X   │
+│                                  └─▶ Exchange code for access_token  │
+│                                  └─▶ Fetch GitHub user + email       │
+│                                  └─▶ Upsert user (by githubId)      │
+│                                  └─▶ Create session                  │
+│                                  └─▶ Redirect to FRONTEND_URL/auth/success │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                 TELEGRAM LOGIN                                       │
+│                                                                      │
+│  Client                         Server                               │
+│  ──────                         ──────                               │
+│  1. Telegram Login Widget ────▶ POST /auth/telegram                  │
+│     sends signed data            └─▶ Verify HMAC-SHA-256 hash       │
+│                                  └─▶ Check auth_date ≤ 5 min ago    │
+│                                  └─▶ Upsert user (by telegramId)    │
+│                                  └─▶ Create session                  │
+│                                  ◀── { userId, email, username }     │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Component Map
 
-| File                        | Type              | Responsibility                             |
-| --------------------------- | ----------------- | ------------------------------------------ |
-| `auth.module.ts`          | Module            | Wires controllers, services, and providers |
-| `auth.controller.ts`      | Controller        | 9 HTTP endpoints                           |
-| `otp.service.ts`          | Service           | OTP generation & verification              |
-| `webauthn.service.ts`     | Service           | Passkey registration & authentication      |
-| `session.service.ts`      | Service           | Session CRUD helpers                       |
-| `prisma-session-store.ts` | Store             | Express-session PostgreSQL adapter         |
-| `guards/session.guard.ts` | Guard             | Route protection                           |
-| `dto/*.dto.ts`            | DTO               | Request body validation types              |
-| `types/session.d.ts`      | Type augmentation | Adds custom fields to SessionData          |
+| File                          | Type              | Responsibility                                    |
+| ----------------------------- | ----------------- | ------------------------------------------------- |
+| `auth.module.ts`            | Module            | Wires controllers, services, and providers         |
+| `auth.controller.ts`        | Controller        | 10 HTTP endpoints (3 auth methods + session mgmt) |
+| `email-auth.service.ts`     | Service           | Email+Password register & login (bcrypt)           |
+| `github-auth.service.ts`    | Service           | GitHub OAuth authorization code flow               |
+| `telegram-auth.service.ts`  | Service           | Telegram Login Widget HMAC verification            |
+| `session.service.ts`        | Service           | Session CRUD helpers                               |
+| `prisma-session-store.ts`   | Store             | Express-session PostgreSQL adapter                 |
+| `guards/session.guard.ts`   | Guard             | Route protection                                   |
+| `dto/register.dto.ts`       | DTO               | Email+password registration validation             |
+| `dto/login.dto.ts`          | DTO               | Email+password login validation                    |
+| `dto/telegram-auth.dto.ts`  | DTO               | Telegram widget data validation                    |
+| `types/session.d.ts`        | Type augmentation | Adds custom fields to SessionData                  |
 
 ---
 
-## OTP Service (`otp.service.ts`)
+## Email Auth Service (`email-auth.service.ts`)
 
 ### Purpose
 
-Generates and verifies 6-digit one-time codes. This is the first step in registration — it proves the user owns the phone number before any passkey is created.
+Handles traditional email + password authentication using [bcrypt](https://github.com/kelektiv/node.bcrypt.js) for password hashing.
 
-### How It Works
+### Registration Flow
 
 ```
-sendOtp(phoneNumber)
+register(email, password, username)
   │
-  ├─ Generate random 6-digit code using crypto.randomInt()
-  ├─ Calculate expiresAt = now + 5 minutes
-  ├─ INSERT INTO otp_challenges (phoneNumber, code, expiresAt)
-  └─ Log code to console (dev) / send via SMS (production)
+  ├─ Check if email already exists → ConflictException if taken
+  ├─ Hash password with bcrypt (10 salt rounds)
+  ├─ INSERT INTO users (email, passwordHash, username)
+  └─ Return { userId, email, username }
+```
 
-verifyOtp(phoneNumber, code)
+### Login Flow
+
+```
+login(email, password)
   │
-  ├─ SELECT FROM otp_challenges WHERE phone=X AND code=Y
-  │    AND verified=false AND expiresAt >= now
-  │    ORDER BY createdAt DESC
-  │
-  ├─ If not found → return false
-  └─ If found → UPDATE SET verified=true → return true
+  ├─ SELECT FROM users WHERE email = ?
+  ├─ If not found or no passwordHash → UnauthorizedException
+  ├─ Compare password with stored hash (bcrypt.compare)
+  ├─ If mismatch → UnauthorizedException
+  └─ Return { userId, email, username }
 ```
 
 ### Security Properties
 
-| Property                           | Implementation                                               |
-| ---------------------------------- | ------------------------------------------------------------ |
-| **Cryptographic randomness** | `crypto.randomInt(100_000, 999_999)` — uses Node's CSPRNG |
-| **One-time use**             | `verified` flag prevents code reuse                        |
-| **Expiration**               | 5-minute TTL (`OTP_TTL_MS = 5 * 60 * 1000`)                |
-| **Latest-first**             | `orderBy: { createdAt: 'desc' }` uses the most recent code |
-
-### Production Considerations
-
-The `sendOtp` method currently logs the code to console. In production, replace the `this.logger.log(...)` call with an SMS provider integration (Twilio, AWS SNS, etc.):
-
-```typescript
-// Replace this:
-this.logger.log(`[DEV] OTP for ${phoneNumber}: ${code}`);
-
-// With something like:
-await this.smsProvider.send(phoneNumber, `Your code: ${code}`);
-```
+| Property                | Implementation                                         |
+| ----------------------- | ------------------------------------------------------ |
+| **Password hashing**    | bcrypt with 10 salt rounds (adaptive cost function)    |
+| **Generic errors**      | "Invalid email or password" — no user enumeration      |
+| **Uniqueness**          | Email is `@unique` in Prisma schema                    |
+| **Validation**          | DTOs use `class-validator`: `@IsEmail()`, `@MinLength(8)`, `@MaxLength(128)` |
 
 ---
 
-## WebAuthn Service (`webauthn.service.ts`)
+## GitHub Auth Service (`github-auth.service.ts`)
 
 ### Purpose
 
-Handles the cryptographic passkey lifecycle using the `@simplewebauthn/server` library, which implements the [WebAuthn Level 2](https://www.w3.org/TR/webauthn-2/) specification.
+Implements the [GitHub OAuth Authorization Code flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps). Exchanges authorization codes for access tokens, fetches user profile + email, and upserts the user in the database.
 
 ### Configuration
 
 ```typescript
-rpName = process.env.RP_NAME || 'Frogger';     // Displayed in browser prompts
-rpID   = process.env.RP_ID   || 'localhost';    // Must match request origin domain
-origin = process.env.ORIGIN  || 'http://localhost:3000';
+clientId     = process.env.GITHUB_CLIENT_ID
+clientSecret = process.env.GITHUB_CLIENT_SECRET
+callbackUrl  = process.env.GITHUB_CALLBACK_URL ?? 'http://localhost:3000/auth/github/callback'
 ```
 
-> **Critical:** In production, `rpID` must match the domain (e.g. `example.com`) and `origin` must match the full URL (e.g. `https://example.com`). A mismatch will cause all verifications to fail.
+### Flow (Detail)
 
-### Challenge Store
+#### Step 1: `getAuthorizationUrl()`
 
-Challenges are stored in an **in-memory `Map`** keyed by purpose:
+Builds a URL to `https://github.com/login/oauth/authorize` with:
+- `client_id` — identifies the OAuth App
+- `redirect_uri` — server callback URL
+- `scope` — `read:user user:email` (profile + private email access)
+
+#### Step 2: `handleCallback(code)`
+
+1. **Exchange code for token** — POST to `https://github.com/login/oauth/access_token`
+2. **Fetch user profile** — GET `https://api.github.com/user` with Bearer token
+3. **Fetch primary email** — If profile email is null, GET `https://api.github.com/user/emails` and pick the primary verified email
+4. **Upsert user**:
+   - Find by `githubId` → if found, return existing user
+   - If not found and email matches existing account → link `githubId` to that account
+   - Otherwise → create new user with `githubId`, email, username, avatar
+
+### Account Linking
+
+GitHub OAuth handles the case where a user already registered via email:
+
+```typescript
+if (email) {
+  const byEmail = await this.prisma.user.findUnique({ where: { email } });
+  if (byEmail) {
+    // Link GitHub to existing account instead of creating a duplicate
+    user = await this.prisma.user.update({
+      where: { id: byEmail.id },
+      data: { githubId },
+    });
+  }
+}
+```
+
+---
+
+## Telegram Auth Service (`telegram-auth.service.ts`)
+
+### Purpose
+
+Verifies data from the [Telegram Login Widget](https://core.telegram.org/widgets/login) using HMAC-SHA-256, and upserts the user.
+
+### Configuration
+
+```typescript
+botToken = process.env.TELEGRAM_BOT_TOKEN
+```
+
+> **Important:** The Telegram Login Widget must be configured in BotFather with the correct domain. The widget checks that the page's domain matches the authorized domain.
+
+### Verification Algorithm
+
+Following [Telegram's documentation](https://core.telegram.org/widgets/login#checking-authorization):
 
 ```
-challengeStore:
-  "reg:+1234567890"   → "abc123..."    // Registration challenge for phone
-  "auth:xyz789..."    → "xyz789..."    // Authentication challenge
+verifyAuth(data):
+  │
+  ├─ Extract hash from data, get remaining fields
+  ├─ Build data-check-string:
+  │    Sort remaining keys alphabetically
+  │    Join as "key=value\nkey=value\n..."
+  ├─ secret_key = SHA-256(bot_token)
+  ├─ computed_hash = HMAC-SHA-256(data_check_string, secret_key)
+  └─ Return computed_hash === hash
 ```
 
-> **Limitation:** In-memory challenges are lost on server restart and don't work with multiple server instances. For production multi-instance deployments, replace with a Redis or DB-backed store.
+### Authentication Flow
 
-### Registration Flow (Detail)
+```
+authenticate(data):
+  │
+  ├─ Verify HMAC hash → UnauthorizedException if invalid
+  ├─ Check auth_date is within 5 minutes → UnauthorizedException if expired
+  ├─ Build display name from username / first_name + last_name / tg_{id}
+  ├─ Find user by telegramId → if found, return
+  └─ Create new user with telegramId, username, profileImage
+```
 
-#### Step 1: `generateRegistrationOptions(phoneNumber)`
+### Security Properties
 
-1. Look up existing user and their credentials (if any)
-2. Build `excludeCredentials` list so the browser won't re-register the same authenticator
-3. Call `@simplewebauthn/server.generateRegistrationOptions()` with:
-   - `rpName`, `rpID` — Relying Party identity
-   - `userName` — the phone number
-   - `attestationType: 'none'` — we don't need hardware attestation
-   - `authenticatorSelection.residentKey: 'preferred'` — prefer discoverable credentials
-   - `authenticatorSelection.userVerification: 'preferred'` — request biometric/PIN if available
-4. Store the challenge: `challengeStore.set("reg:+1234567890", challenge)`
-5. Return the options object to the client
-
-#### Step 2: `verifyRegistration(phoneNumber, credential)`
-
-1. Retrieve the expected challenge from the store
-2. Call `verifyRegistrationResponse()` — this validates:
-   - The challenge matches
-   - The origin matches
-   - The RP ID matches
-   - The attestation signature is valid
-3. On success:
-   - Find or create the User record
-   - Store the Credential (public key, counter, transports)
-4. Clean up the challenge from the store (even on failure, via `finally`)
-
-### Authentication Flow (Detail)
-
-#### Step 1: `generateAuthenticationOptions()`
-
-1. Call `@simplewebauthn/server.generateAuthenticationOptions()` with:
-   - `allowCredentials: []` — empty array enables **discoverable credentials** (the browser shows all available passkeys)
-   - `userVerification: 'preferred'`
-2. Store: `challengeStore.set("auth:" + challenge, challenge)`
-
-#### Step 2: `verifyAuthentication(credential)`
-
-1. Look up the stored credential by `credential.id` (the browser sends back which key was used)
-2. Find the matching challenge in the store
-3. Call `verifyAuthenticationResponse()` — validates the assertion signature against the stored public key
-4. Update the **signature counter** — this is critical for replay attack prevention:
-   ```typescript
-   await prisma.credential.update({
-     where: { id: storedCredential.id },
-     data: { counter: BigInt(verification.authenticationInfo.newCounter) },
-   });
-   ```
-5. Return the authenticated user
-
-### Error Handling
-
-All WebAuthn operations wrap `@simplewebauthn/server` calls in try/catch and re-throw as `BadRequestException` with descriptive messages. The original error is logged at `error` level.
+| Property                    | Implementation                                              |
+| --------------------------- | ----------------------------------------------------------- |
+| **HMAC verification**       | SHA-256 secret key derived from bot token + HMAC-SHA-256    |
+| **Freshness check**         | `auth_date` must be within 300 seconds (5 minutes)          |
+| **Cryptographic integrity** | Uses Node.js `crypto` module (CSPRNG-backed)                |
 
 ---
 
@@ -213,12 +241,11 @@ Express-session's `SessionData` interface is extended with custom fields via [de
 ```typescript
 declare module 'express-session' {
   interface SessionData {
-    userId?: string;        // Authenticated user ID (BigInt as string)
-    phoneNumber?: string;   // User's phone number
-    userAgent?: string;     // Browser/device string for session listing
-    ip?: string;            // IP address at login time
-    createdAt?: number;     // Unix timestamp of session creation
-    verifiedPhone?: string; // Phone verified in OTP step (pre-registration)
+    userId?: string;     // Authenticated user ID (BigInt as string)
+    email?: string;      // User's email address
+    userAgent?: string;  // Browser/device string for session listing
+    ip?: string;         // IP address at login time
+    createdAt?: number;  // Unix timestamp of session creation
   }
 }
 ```
@@ -229,12 +256,12 @@ This augmentation makes `req.session.userId` etc. type-safe across the entire co
 
 Provides high-level session operations:
 
-| Method                                      | Description                                                          |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| `createSession(req, userId, phoneNumber)` | Populates `req.session` fields after successful auth               |
-| `listUserSessions(userId)`                | Queries all non-expired sessions, filters by `userId` in JSON data |
-| `destroySession(sessionId)`               | Deletes a specific session from the DB                               |
-| `destroyAllUserSessions(userId)`          | Finds and deletes all sessions for a user (bulk logout)              |
+| Method                                | Description                                                          |
+| ------------------------------------- | -------------------------------------------------------------------- |
+| `createSession(req, userId, email)` | Populates `req.session` fields after successful auth               |
+| `listUserSessions(userId)`          | Queries all non-expired sessions, filters by `userId` in JSON data |
+| `destroySession(sessionId)`         | Deletes a specific session from the DB                               |
+| `destroyAllUserSessions(userId)`    | Finds and deletes all sessions for a user (bulk logout)              |
 
 > **Note:** `listUserSessions` scans all active sessions and filters by parsing JSON — this is fine for moderate session counts but may need optimization (e.g. a `userId` column) at scale.
 
@@ -265,7 +292,7 @@ class PrismaSessionStore extends Store {
 ### Session Lifecycle
 
 ```
-1. User authenticates (OTP+WebAuthn or passkey login)
+1. User authenticates (Email+Password / GitHub OAuth / Telegram)
       │
       ▼
 2. SessionService.createSession() populates req.session
@@ -318,33 +345,29 @@ me(@Req() req: Request) { ... }
 
 Guards run **before** the route handler. If `canActivate` returns `false` or throws, the request is rejected with the appropriate HTTP status (401 in this case).
 
-### Why Not a Middleware?
-
-In NestJS, **guards** are preferred over middleware for authentication because:
-
-- They integrate with the NestJS lifecycle (modules, dependency injection, metadata)
-- They can be applied per-route, per-controller, or globally
-- They work with `@UseGuards()` decorator — clear and declarative
-- They have access to `ExecutionContext` (route metadata, handler reference)
-
 ---
 
 ## Auth Controller Endpoints
 
-### Registration
+### Email + Password
 
-| Method   | Path                      | Auth | Description                                         |
-| -------- | ------------------------- | ---- | --------------------------------------------------- |
-| `POST` | `/auth/otp/send`        | None | Send OTP to phone number                            |
-| `POST` | `/auth/otp/verify`      | None | Verify OTP, return WebAuthn registration challenge  |
-| `POST` | `/auth/register/verify` | None | Verify passkey attestation, create user, auto-login |
+| Method   | Path              | Auth | Description                              |
+| -------- | ----------------- | ---- | ---------------------------------------- |
+| `POST` | `/auth/register` | None | Register with email, password, username  |
+| `POST` | `/auth/login`    | None | Login with email and password            |
 
-### Login
+### GitHub OAuth
 
-| Method   | Path                    | Auth | Description                              |
-| -------- | ----------------------- | ---- | ---------------------------------------- |
-| `GET`  | `/auth/login/options` | None | Get WebAuthn authentication challenge    |
-| `POST` | `/auth/login/verify`  | None | Verify passkey assertion, create session |
+| Method  | Path                       | Auth | Description                                   |
+| ------- | -------------------------- | ---- | --------------------------------------------- |
+| `GET` | `/auth/github`           | None | Redirect to GitHub authorization page         |
+| `GET` | `/auth/github/callback`  | None | Handle OAuth callback, create session, redirect to frontend |
+
+### Telegram Login
+
+| Method   | Path              | Auth | Description                                 |
+| -------- | ----------------- | ---- | ------------------------------------------- |
+| `POST` | `/auth/telegram` | None | Verify Telegram widget data, create session |
 
 ### Session Management
 
@@ -374,45 +397,65 @@ This prevents users from destroying other users' sessions.
 
 ## DTOs (Data Transfer Objects)
 
-DTOs define the shape of request bodies. They are plain TypeScript classes:
+DTOs define the shape of request bodies and use `class-validator` decorators for runtime validation (enabled via `ValidationPipe` in `main.ts`).
 
-### `SendOtpDto`
+### `RegisterDto`
 
 ```typescript
-export class SendOtpDto {
-  phoneNumber: string;
+export class RegisterDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @MaxLength(128)
+  password!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(50)
+  username!: string;
 }
 ```
 
-### `VerifyOtpDto`
+### `LoginDto`
 
 ```typescript
-export class VerifyOtpDto {
-  phoneNumber: string;
-  code: string;
+export class LoginDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  password!: string;
 }
 ```
 
-### `VerifyRegistrationDto`
+### `TelegramAuthDto`
 
 ```typescript
-export class VerifyRegistrationDto {
-  phoneNumber: string;
-  credential: RegistrationResponseJSON;  // from @simplewebauthn/server
+export class TelegramAuthDto {
+  @IsNumber()
+  id!: number;
+
+  @IsOptional() @IsString()
+  first_name?: string;
+
+  @IsOptional() @IsString()
+  last_name?: string;
+
+  @IsOptional() @IsString()
+  username?: string;
+
+  @IsOptional() @IsString()
+  photo_url?: string;
+
+  @IsNumber()
+  auth_date!: number;
+
+  @IsString()
+  hash!: string;
 }
 ```
-
-### `VerifyAuthenticationDto`
-
-```typescript
-export class VerifyAuthenticationDto {
-  credential: AuthenticationResponseJSON;  // from @simplewebauthn/server
-}
-```
-
-The `credential` fields use types from `@simplewebauthn/server`, ensuring type safety between the browser's WebAuthn API responses and the server's verification logic.
-
-> **Note:** These DTOs don't currently use `class-validator` decorators. To add runtime validation, install `class-validator` + `class-transformer`, add decorators like `@IsString()`, and enable `ValidationPipe` globally in `main.ts`.
 
 ---
 
