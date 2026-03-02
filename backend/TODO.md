@@ -78,27 +78,27 @@
 
 ### 3.4 Likes Module
 
-- [ ] Create `LikesModule`, `LikesController`, `LikesService`
-- [ ] `POST /posts/:postId/like` — like a post (toggle)
-- [ ] `DELETE /posts/:postId/like` — unlike a post
-- [ ] `GET /posts/:postId/likes` — list users who liked
-- [ ] Write tests
+- [X] Create `LikesModule`, `LikesController`, `LikesService`
+- [X] `POST /posts/:postId/likes` — like a post (toggle)
+- [X] `DELETE /posts/:postId/likes` — unlike a post
+- [X] `GET /posts/:postId/likes` — list users who liked
+- [X] Write tests
 
 ### 3.5 Bookmarks Module
 
-- [ ] Create `BookmarksModule`, `BookmarksController`, `BookmarksService`
-- [ ] `POST /posts/:postId/bookmark` — bookmark a post
-- [ ] `DELETE /posts/:postId/bookmark` — remove bookmark
-- [ ] `GET /bookmarks` — list user's bookmarks with pagination
-- [ ] Write tests
+- [X] Create `BookmarksModule`, `BookmarksController`, `BookmarksService`
+- [X] `POST /posts/:postId/bookmark` — bookmark a post (toggle)
+- [X] `DELETE /posts/:postId/bookmark` — remove bookmark
+- [X] `GET /bookmarks` — list user's bookmarks with pagination
+- [X] Write tests
 
 ### 3.6 Reactions Module
 
-- [ ] Create `ReactionsModule`, `ReactionsController`, `ReactionsService`
-- [ ] `POST /posts/:postId/reactions` — add reaction (type: emoji)
-- [ ] `DELETE /posts/:postId/reactions` — remove reaction
-- [ ] `GET /posts/:postId/reactions` — list reactions grouped by type
-- [ ] Write tests
+- [X] Create `ReactionsModule`, `ReactionsController`, `ReactionsService`
+- [X] `POST /posts/:postId/reactions` — add reaction (type: emoji, toggle)
+- [X] `DELETE /posts/:postId/reactions?type=` — remove reaction
+- [X] `GET /posts/:postId/reactions` — list reactions grouped by type
+- [X] Write tests
 
 ### 3.7 Polls Module
 
@@ -179,13 +179,13 @@
 | Session store (PostgreSQL, no Redis)          | [x] Done        |
 | Session guard                                 | [x] Done        |
 | ESLint configuration                          | [x] Done        |
-| Unit tests (130)                              | [x] Done        |
+| Unit tests (167)                              | [x] Done        |
 | E2E tests (11)                                | [x] Done        |
 | Project documentation (6 files)               | [x] Done        |
 | Users module                                  | [x] Done        |
 | Posts module                                  | [x] Done        |
 | Comments module                               | [x] Done        |
-| Social features (likes, bookmarks, reactions) | [ ] Not started |
+| Social features (likes, bookmarks, reactions) | [x] Done        |
 | Polls module                                  | [ ] Not started |
 | File upload                                   | [ ] Not started |
 | Notifications + WebSocket                     | [ ] Not started |

@@ -160,6 +160,7 @@ model Like {
   user User? @relation(fields: [userId], references: [id])
   post Post? @relation(fields: [postId], references: [id])
 
+  @@unique([userId, postId])
   @@map("likes")
 }
 
@@ -172,6 +173,7 @@ model Bookmark {
   user User? @relation(fields: [userId], references: [id])
   post Post? @relation(fields: [postId], references: [id])
 
+  @@unique([userId, postId])
   @@map("bookmarks")
 }
 
@@ -185,6 +187,7 @@ model Reaction {
   user User? @relation(fields: [userId], references: [id])
   post Post? @relation(fields: [postId], references: [id])
 
+  @@unique([userId, postId, reactionType])
   @@map("reactions")
 }
 
