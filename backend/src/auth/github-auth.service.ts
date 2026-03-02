@@ -61,9 +61,16 @@ export class GithubAuthService {
       },
     );
 
-    const tokenData = (await tokenRes.json()) as GitHubTokenResponse;
+    const tokenData = (await tokenRes.json()) as GitHubTokenResponse & {
+      error?: string;
+      error_description?: string;
+    };
+    this.logger.debug(`GitHub token response: ${JSON.stringify(tokenData)}`);
     if (!tokenData.access_token) {
-      throw new BadRequestException('Failed to exchange GitHub code for token');
+      throw new BadRequestException(
+        tokenData.error_description ??
+          'Failed to exchange GitHub code for token',
+      );
     }
 
     // 2. Fetch GitHub user profile
@@ -75,6 +82,7 @@ export class GithubAuthService {
     });
 
     const ghUser = (await userRes.json()) as GitHubUser;
+    this.logger.debug(`GitHub user response: ${JSON.stringify(ghUser)}`);
     if (!ghUser.id) {
       throw new BadRequestException('Failed to fetch GitHub user info');
     }
