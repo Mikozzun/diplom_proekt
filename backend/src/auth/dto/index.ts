@@ -1,4 +1,3 @@
-export { SendOtpDto } from './send-otp.dto.js';
-export { VerifyOtpDto } from './verify-otp.dto.js';
-export { VerifyRegistrationDto } from './verify-registration.dto.js';
-export { VerifyAuthenticationDto } from './verify-authentication.dto.js';
+export { RegisterDto } from './register.dto.js';
+export { LoginDto } from './login.dto.js';
+export { TelegramAuthDto } from './telegram-auth.dto.js';

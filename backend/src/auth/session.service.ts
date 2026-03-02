@@ -15,9 +15,9 @@ export class SessionService {
   /**
    * Populate session after successful authentication.
    */
-  createSession(req: Request, userId: string, phoneNumber: string): void {
+  createSession(req: Request, userId: string, email: string): void {
     req.session.userId = userId;
-    req.session.phoneNumber = phoneNumber;
+    req.session.email = email;
     req.session.userAgent = req.headers['user-agent'] ?? 'unknown';
     req.session.ip = req.ip ?? req.socket.remoteAddress;
     req.session.createdAt = Date.now();

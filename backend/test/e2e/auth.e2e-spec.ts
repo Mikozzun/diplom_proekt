@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, HttpStatus } from '@nestjs/common';
+import { INestApplication, HttpStatus, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import session from 'express-session';
@@ -17,18 +17,9 @@ describe('Auth (e2e)', () => {
 
   // Mock Prisma data
   const mockPrisma = {
-    otpChallenge: {
-      create: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
-    },
     user: {
-      findFirst: jest.fn(),
-      create: jest.fn(),
-    },
-    credential: {
-      create: jest.fn(),
       findUnique: jest.fn(),
+      create: jest.fn(),
       update: jest.fn(),
     },
     session: {
@@ -53,6 +44,10 @@ describe('Auth (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
 
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+    );
+
     // Configure session middleware (mirrors main.ts)
     app.use(
       session({
@@ -71,72 +66,105 @@ describe('Auth (e2e)', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   // ─────────────────────────────────────────
-  //  OTP FLOW
+  //  EMAIL REGISTRATION
   // ─────────────────────────────────────────
 
-  describe('POST /auth/otp/send', () => {
-    it('should send OTP and return 200', async () => {
-      mockPrisma.otpChallenge.create.mockResolvedValue({
+  describe('POST /auth/register', () => {
+    it('should register a new user and return 201', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
         id: 1n,
-        phoneNumber: '+1234567890',
-        code: '123456',
-        expiresAt: new Date(),
+        email: 'new@example.com',
+        username: 'newuser',
+        passwordHash: 'hashed',
       });
 
       const response = await request(app.getHttpServer())
-        .post('/auth/otp/send')
-        .send({ phoneNumber: '+1234567890' })
-        .expect(HttpStatus.OK);
+        .post('/auth/register')
+        .send({
+          email: 'new@example.com',
+          password: 'securepass123',
+          username: 'newuser',
+        })
+        .expect(HttpStatus.CREATED);
 
-      expect(response.body).toEqual({ message: 'OTP sent successfully' });
+      expect(response.body.userId).toBeDefined();
+      expect(response.body.email).toBe('new@example.com');
+      expect(response.body.message).toContain('Registered');
     });
-  });
 
-  describe('POST /auth/otp/verify', () => {
-    it('should reject invalid OTP with 400', async () => {
-      mockPrisma.otpChallenge.findFirst.mockResolvedValue(null);
-
+    it('should reject registration with invalid email', async () => {
       await request(app.getHttpServer())
-        .post('/auth/otp/verify')
-        .send({ phoneNumber: '+1234567890', code: '000000' })
+        .post('/auth/register')
+        .send({
+          email: 'not-an-email',
+          password: 'securepass123',
+          username: 'user',
+        })
+        .expect(HttpStatus.BAD_REQUEST);
+    });
+
+    it('should reject registration with short password', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: 'test@example.com',
+          password: 'short',
+          username: 'user',
+        })
         .expect(HttpStatus.BAD_REQUEST);
     });
   });
 
   // ─────────────────────────────────────────
-  //  REGISTRATION FLOW
+  //  EMAIL LOGIN
   // ─────────────────────────────────────────
 
-  describe('POST /auth/register/verify', () => {
-    it('should reject when no phone number verified', async () => {
-      // No OTP verified in session, no phoneNumber in body
+  describe('POST /auth/login', () => {
+    it('should reject login with non-existent user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
       await request(app.getHttpServer())
-        .post('/auth/register/verify')
-        .send({ phoneNumber: '', credential: {} })
-        .expect(HttpStatus.BAD_REQUEST);
+        .post('/auth/login')
+        .send({ email: 'nobody@example.com', password: 'pass' })
+        .expect(HttpStatus.UNAUTHORIZED);
     });
   });
 
   // ─────────────────────────────────────────
-  //  LOGIN FLOW
+  //  GITHUB OAUTH
   // ─────────────────────────────────────────
 
-  describe('GET /auth/login/options', () => {
-    it('should return authentication options', async () => {
-      // The WebAuthnService calls generateAuthenticationOptions from simplewebauthn
-      // In e2e, the real service is used, so this may fail if simplewebauthn
-      // can't be called without proper setup. We test that the endpoint exists.
-      const response = await request(app.getHttpServer()).get(
-        '/auth/login/options',
+  describe('GET /auth/github', () => {
+    it('should redirect to GitHub', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/auth/github')
+        .expect(HttpStatus.FOUND);
+
+      expect(response.headers.location).toContain(
+        'github.com/login/oauth/authorize',
       );
+    });
+  });
 
-      // Should return 200 with authenticationOptions
-      expect(response.status).toBe(HttpStatus.OK);
-      expect(response.body).toHaveProperty('authenticationOptions');
+  // ─────────────────────────────────────────
+  //  TELEGRAM
+  // ─────────────────────────────────────────
+
+  describe('POST /auth/telegram', () => {
+    it('should reject invalid Telegram auth data', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/telegram')
+        .send({
+          id: 123,
+          auth_date: Math.floor(Date.now() / 1000),
+          hash: 'invalid-hash',
+        })
+        .expect(HttpStatus.UNAUTHORIZED);
     });
   });
 
@@ -177,39 +205,38 @@ describe('Auth (e2e)', () => {
   });
 
   // ─────────────────────────────────────────
-  //  FULL INTEGRATION FLOW (OTP → session)
+  //  FULL EMAIL REGISTRATION + LOGIN FLOW
   // ─────────────────────────────────────────
 
-  describe('OTP → verify → session flow', () => {
-    it('should set verifiedPhone in session after valid OTP', async () => {
-      // Set up mocks for successful OTP verification
-      mockPrisma.otpChallenge.findFirst.mockResolvedValue({
-        id: 1n,
-        phoneNumber: '+1234567890',
-        code: '999999',
-        verified: false,
-        expiresAt: new Date(Date.now() + 300_000),
+  describe('Register → Login → Session flow', () => {
+    it('should register, then access /auth/me with session', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.create.mockResolvedValue({
+        id: 100n,
+        email: 'flow@example.com',
+        username: 'flowuser',
+        passwordHash: 'hashed',
       });
-      mockPrisma.otpChallenge.update.mockResolvedValue({
-        id: 1n,
-        verified: true,
-      });
-
-      // The WebAuthnService will be called with the real module.
-      // We only need user lookup to return null (no excludeCredentials).
-      mockPrisma.user.findFirst.mockResolvedValue(null);
 
       const agent = request.agent(app.getHttpServer());
 
-      // Step 1: Verify OTP
-      const otpResponse = await agent
-        .post('/auth/otp/verify')
-        .send({ phoneNumber: '+1234567890', code: '999999' });
+      // Step 1: Register (auto-login)
+      const registerRes = await agent
+        .post('/auth/register')
+        .send({
+          email: 'flow@example.com',
+          password: 'securepass123',
+          username: 'flowuser',
+        })
+        .expect(HttpStatus.CREATED);
 
-      expect(otpResponse.status).toBe(HttpStatus.OK);
-      expect(otpResponse.body.otpVerified).toBe(true);
-      expect(otpResponse.body.registrationOptions).toBeDefined();
-      expect(otpResponse.body.registrationOptions.challenge).toBeDefined();
+      expect(registerRes.body.userId).toBeDefined();
+
+      // Step 2: Access /auth/me (should have session)
+      const meRes = await agent.get('/auth/me').expect(HttpStatus.OK);
+
+      expect(meRes.body.userId).toBeDefined();
+      expect(meRes.body.email).toBe('flow@example.com');
     });
   });
 });

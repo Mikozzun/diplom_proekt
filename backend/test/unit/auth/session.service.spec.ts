@@ -37,10 +37,10 @@ describe('SessionService', () => {
         socket: { remoteAddress: '127.0.0.1' },
       } as unknown as Request;
 
-      service.createSession(req, 'user-123', '+1234567890');
+      service.createSession(req, 'user-123', 'test@example.com');
 
       expect(session.userId).toBe('user-123');
-      expect(session.phoneNumber).toBe('+1234567890');
+      expect(session.email).toBe('test@example.com');
       expect(session.userAgent).toBe('Mozilla/5.0 TestBrowser');
       expect(session.ip).toBe('192.168.1.1');
       expect(session.createdAt).toEqual(expect.any(Number));
@@ -55,7 +55,7 @@ describe('SessionService', () => {
         socket: { remoteAddress: '10.0.0.1' },
       } as unknown as Request;
 
-      service.createSession(req, 'user-456', '+9876543210');
+      service.createSession(req, 'user-456', 'other@example.com');
 
       expect(session.ip).toBe('10.0.0.1');
     });
@@ -69,7 +69,7 @@ describe('SessionService', () => {
         socket: { remoteAddress: '1.2.3.4' },
       } as unknown as Request;
 
-      service.createSession(req, 'user-789', '+1111111111');
+      service.createSession(req, 'user-789', 'user@example.com');
 
       expect(session.userAgent).toBe('unknown');
     });

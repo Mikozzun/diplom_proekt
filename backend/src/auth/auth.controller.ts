@@ -5,143 +5,134 @@ import {
   Delete,
   Body,
   Req,
+  Res,
+  Query,
   Param,
   UseGuards,
   HttpCode,
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
-import type { Request } from 'express';
-import { OtpService } from './otp.service.js';
-import { WebAuthnService } from './webauthn.service.js';
+import type { Request, Response } from 'express';
+import { EmailAuthService } from './email-auth.service.js';
+import { GithubAuthService } from './github-auth.service.js';
+import { TelegramAuthService } from './telegram-auth.service.js';
 import { SessionService } from './session.service.js';
 import { SessionGuard } from './guards/session.guard.js';
-import {
-  SendOtpDto,
-  VerifyOtpDto,
-  VerifyRegistrationDto,
-  VerifyAuthenticationDto,
-} from './dto/index.js';
+import { RegisterDto, LoginDto, TelegramAuthDto } from './dto/index.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly otpService: OtpService,
-    private readonly webAuthnService: WebAuthnService,
+    private readonly emailAuth: EmailAuthService,
+    private readonly githubAuth: GithubAuthService,
+    private readonly telegramAuth: TelegramAuthService,
     private readonly sessionService: SessionService,
   ) {}
 
   // ───────────────────────────────────────────────
-  //  A. REGISTRATION FLOW
+  //  A. EMAIL + PASSWORD
   // ───────────────────────────────────────────────
 
   /**
-   * 1) Send OTP to the given phone number.
-   * POST /auth/otp/send
+   * Register a new user with email and password.
+   * POST /auth/register
    */
-  @Post('otp/send')
-  @HttpCode(HttpStatus.OK)
-  async sendOtp(@Body() dto: SendOtpDto) {
-    return this.otpService.sendOtp(dto.phoneNumber);
-  }
-
-  /**
-   * 2) Verify OTP.  On success the phone number is marked as verified
-   *    and the server returns WebAuthn registration options (challenge).
-   * POST /auth/otp/verify
-   */
-  @Post('otp/verify')
-  @HttpCode(HttpStatus.OK)
-  async verifyOtpAndGetRegistrationOptions(
-    @Body() dto: VerifyOtpDto,
-    @Req() req: Request,
-  ) {
-    const valid = await this.otpService.verifyOtp(dto.phoneNumber, dto.code);
-    if (!valid) {
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-
-    // Mark phone verified in session (temporary, pre-registration)
-    req.session.verifiedPhone = dto.phoneNumber;
-
-    // Generate WebAuthn registration options
-    const options = await this.webAuthnService.generateRegistrationOptions(
-      dto.phoneNumber,
-    );
-
-    return { otpVerified: true, registrationOptions: options };
-  }
-
-  /**
-   * 3) Frontend calls startRegistration(), sends result here.
-   *    Backend verifies & saves the public key credential.
-   * POST /auth/register/verify
-   */
-  @Post('register/verify')
+  @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async verifyRegistration(
-    @Body() dto: VerifyRegistrationDto,
-    @Req() req: Request,
-  ) {
-    const phoneNumber = dto.phoneNumber || req.session.verifiedPhone;
-
-    if (!phoneNumber) {
-      throw new BadRequestException(
-        'Phone number not verified. Complete OTP step first.',
-      );
-    }
-
-    const result = await this.webAuthnService.verifyRegistration(
-      phoneNumber,
-      dto.credential,
+  async register(@Body() dto: RegisterDto, @Req() req: Request) {
+    const result = await this.emailAuth.register(
+      dto.email,
+      dto.password,
+      dto.username,
     );
 
     // Auto-login after registration
-    this.sessionService.createSession(req, result.userId, phoneNumber);
+    this.sessionService.createSession(req, result.userId, result.email!);
 
     return {
-      verified: result.verified,
       userId: result.userId,
-      message: 'Passkey registered & logged in successfully',
+      email: result.email,
+      username: result.username,
+      message: 'Registered and logged in successfully',
+    };
+  }
+
+  /**
+   * Login with email and password.
+   * POST /auth/login
+   */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() dto: LoginDto, @Req() req: Request) {
+    const result = await this.emailAuth.login(dto.email, dto.password);
+
+    this.sessionService.createSession(req, result.userId, result.email);
+
+    return {
+      userId: result.userId,
+      email: result.email,
+      username: result.username,
+      message: 'Logged in successfully',
     };
   }
 
   // ───────────────────────────────────────────────
-  //  B. LOGIN (ASSERTION) FLOW
+  //  B. GITHUB OAUTH
   // ───────────────────────────────────────────────
 
   /**
-   * 1) Generate authentication options (discoverable credentials).
-   * GET /auth/login/options
+   * Redirect the user to GitHub OAuth page.
+   * GET /auth/github
    */
-  @Get('login/options')
-  async getLoginOptions() {
-    const options = await this.webAuthnService.generateAuthenticationOptions();
-    return { authenticationOptions: options };
+  @Get('github')
+  githubRedirect(@Res() res: Response) {
+    const url = this.githubAuth.getAuthorizationUrl();
+    res.redirect(url);
   }
 
   /**
-   * 2) Verify the authentication assertion and create a session.
-   * POST /auth/login/verify
+   * Handle GitHub OAuth callback.
+   * GET /auth/github/callback?code=...
    */
-  @Post('login/verify')
-  @HttpCode(HttpStatus.OK)
-  async verifyLogin(@Body() dto: VerifyAuthenticationDto, @Req() req: Request) {
-    const result = await this.webAuthnService.verifyAuthentication(
-      dto.credential,
-    );
+  @Get('github/callback')
+  async githubCallback(
+    @Query('code') code: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    if (!code) {
+      throw new BadRequestException('Missing authorization code');
+    }
 
-    // Create session
-    this.sessionService.createSession(
-      req,
-      result.user.id.toString(),
-      result.user.phoneNumber,
-    );
+    const result = await this.githubAuth.handleCallback(code);
+    this.sessionService.createSession(req, result.userId, result.email ?? '');
+
+    // Redirect to frontend after successful login
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+    res.redirect(`${frontendUrl}/auth/success`);
+  }
+
+  // ───────────────────────────────────────────────
+  //  C. TELEGRAM LOGIN WIDGET
+  // ───────────────────────────────────────────────
+
+  /**
+   * Verify Telegram Login Widget data and create a session.
+   * POST /auth/telegram
+   */
+  @Post('telegram')
+  @HttpCode(HttpStatus.OK)
+  async telegramLogin(@Body() dto: TelegramAuthDto, @Req() req: Request) {
+    const result = await this.telegramAuth.authenticate(dto);
+
+    this.sessionService.createSession(req, result.userId, result.email ?? '');
 
     return {
-      verified: true,
-      userId: result.user.id.toString(),
-      message: 'Logged in successfully',
+      userId: result.userId,
+      email: result.email,
+      username: result.username,
+      message: 'Logged in via Telegram successfully',
     };
   }
 
@@ -158,7 +149,7 @@ export class AuthController {
   me(@Req() req: Request) {
     return {
       userId: req.session.userId,
-      phoneNumber: req.session.phoneNumber,
+      email: req.session.email,
       sessionId: req.sessionID,
       userAgent: req.session.userAgent,
       ip: req.session.ip,

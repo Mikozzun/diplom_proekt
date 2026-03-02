@@ -3,15 +3,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import session from 'express-session';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaSessionStore } from './auth/prisma-session-store.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // ── Prisma client for session store ──────────────────────
-  const prisma = new PrismaClient({
-    accelerateUrl: process.env.DATABASE_URL,
-  });
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+  const prisma = new PrismaClient({ adapter });
   await prisma.$connect();
 
   // ── Express-session with PostgreSQL store ────────────────
@@ -43,8 +43,8 @@ async function bootstrap() {
   app.useLogger(new WebSocketLogger(logsGateway));
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  console.log(`Server running on http://localhost:${port}`);
-  console.log(`Live logs dashboard: http://localhost:${port}/logs`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`Server running on http://0.0.0.0:${port}`);
+  console.log(`Live logs dashboard: http://0.0.0.0:${port}/logs`);
 }
 void bootstrap();

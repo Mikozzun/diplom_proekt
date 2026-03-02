@@ -1,22 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { AuthController } from '../../../src/auth/auth.controller';
-import { OtpService } from '../../../src/auth/otp.service';
-import { WebAuthnService } from '../../../src/auth/webauthn.service';
+import { EmailAuthService } from '../../../src/auth/email-auth.service';
+import { GithubAuthService } from '../../../src/auth/github-auth.service';
+import { TelegramAuthService } from '../../../src/auth/telegram-auth.service';
 import { SessionService } from '../../../src/auth/session.service';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 describe('AuthController', () => {
   let controller: AuthController;
-  let otpService: {
-    sendOtp: jest.Mock;
-    verifyOtp: jest.Mock;
+  let emailAuth: {
+    register: jest.Mock;
+    login: jest.Mock;
   };
-  let webAuthnService: {
-    generateRegistrationOptions: jest.Mock;
-    verifyRegistration: jest.Mock;
-    generateAuthenticationOptions: jest.Mock;
-    verifyAuthentication: jest.Mock;
+  let githubAuth: {
+    getAuthorizationUrl: jest.Mock;
+    handleCallback: jest.Mock;
+  };
+  let telegramAuth: {
+    authenticate: jest.Mock;
   };
   let sessionService: {
     createSession: jest.Mock;
@@ -30,8 +32,7 @@ describe('AuthController', () => {
       destroy: jest.Mock;
     } = {
       userId: undefined,
-      phoneNumber: undefined,
-      verifiedPhone: undefined,
+      email: undefined,
       userAgent: undefined,
       ip: undefined,
       createdAt: undefined,
@@ -47,16 +48,23 @@ describe('AuthController', () => {
     } as unknown as Request;
   };
 
+  const mockResponse = (): Response => {
+    return {
+      redirect: jest.fn(),
+    } as unknown as Response;
+  };
+
   beforeEach(async () => {
-    otpService = {
-      sendOtp: jest.fn(),
-      verifyOtp: jest.fn(),
+    emailAuth = {
+      register: jest.fn(),
+      login: jest.fn(),
     };
-    webAuthnService = {
-      generateRegistrationOptions: jest.fn(),
-      verifyRegistration: jest.fn(),
-      generateAuthenticationOptions: jest.fn(),
-      verifyAuthentication: jest.fn(),
+    githubAuth = {
+      getAuthorizationUrl: jest.fn(),
+      handleCallback: jest.fn(),
+    };
+    telegramAuth = {
+      authenticate: jest.fn(),
     };
     sessionService = {
       createSession: jest.fn(),
@@ -68,8 +76,9 @@ describe('AuthController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        { provide: OtpService, useValue: otpService },
-        { provide: WebAuthnService, useValue: webAuthnService },
+        { provide: EmailAuthService, useValue: emailAuth },
+        { provide: GithubAuthService, useValue: githubAuth },
+        { provide: TelegramAuthService, useValue: telegramAuth },
         { provide: SessionService, useValue: sessionService },
       ],
     }).compile();
@@ -78,155 +87,137 @@ describe('AuthController', () => {
   });
 
   // ─────────────────────────────────────
-  //  REGISTRATION FLOW
+  //  EMAIL + PASSWORD
   // ─────────────────────────────────────
 
-  describe('POST /auth/otp/send', () => {
-    it('should send OTP and return success message', async () => {
-      otpService.sendOtp.mockResolvedValue({
-        message: 'OTP sent successfully',
-      });
-
-      const result = await controller.sendOtp({ phoneNumber: '+1234567890' });
-
-      expect(result).toEqual({ message: 'OTP sent successfully' });
-      expect(otpService.sendOtp).toHaveBeenCalledWith('+1234567890');
-    });
-  });
-
-  describe('POST /auth/otp/verify', () => {
-    it('should verify OTP and return registration options', async () => {
-      otpService.verifyOtp.mockResolvedValue(true);
-      webAuthnService.generateRegistrationOptions.mockResolvedValue({
-        challenge: 'test-challenge',
+  describe('POST /auth/register', () => {
+    it('should register user and auto-login', async () => {
+      emailAuth.register.mockResolvedValue({
+        userId: '1',
+        email: 'test@example.com',
+        username: 'testuser',
       });
       const req = mockRequest();
 
-      const result = await controller.verifyOtpAndGetRegistrationOptions(
-        { phoneNumber: '+1234567890', code: '123456' },
+      const result = await controller.register(
+        {
+          email: 'test@example.com',
+          password: 'password123',
+          username: 'testuser',
+        },
         req,
       );
 
-      expect(result.otpVerified).toBe(true);
-      expect(result.registrationOptions).toEqual({
-        challenge: 'test-challenge',
-      });
-      expect(req.session.verifiedPhone).toBe('+1234567890');
-    });
-
-    it('should throw BadRequestException for invalid OTP', async () => {
-      otpService.verifyOtp.mockResolvedValue(false);
-      const req = mockRequest();
-
-      await expect(
-        controller.verifyOtpAndGetRegistrationOptions(
-          { phoneNumber: '+1234567890', code: '000000' },
-          req,
-        ),
-      ).rejects.toThrow(BadRequestException);
+      expect(result.userId).toBe('1');
+      expect(result.email).toBe('test@example.com');
+      expect(result.message).toContain('Registered');
+      expect(sessionService.createSession).toHaveBeenCalledWith(
+        req,
+        '1',
+        'test@example.com',
+      );
     });
   });
 
-  describe('POST /auth/register/verify', () => {
-    it('should verify registration and auto-login', async () => {
-      webAuthnService.verifyRegistration.mockResolvedValue({
-        verified: true,
+  describe('POST /auth/login', () => {
+    it('should login and create session', async () => {
+      emailAuth.login.mockResolvedValue({
         userId: '42',
+        email: 'user@example.com',
+        username: 'user42',
       });
       const req = mockRequest();
-      req.session.verifiedPhone = '+1234567890';
 
-      const result = await controller.verifyRegistration(
-        { phoneNumber: '+1234567890', credential: {} as any },
+      const result = await controller.login(
+        { email: 'user@example.com', password: 'pass' },
         req,
       );
 
-      expect(result.verified).toBe(true);
       expect(result.userId).toBe('42');
-      expect(result.message).toBe(
-        'Passkey registered & logged in successfully',
-      );
+      expect(result.message).toContain('Logged in');
       expect(sessionService.createSession).toHaveBeenCalledWith(
         req,
         '42',
-        '+1234567890',
+        'user@example.com',
       );
-    });
-
-    it('should use verifiedPhone from session when dto.phoneNumber is empty', async () => {
-      webAuthnService.verifyRegistration.mockResolvedValue({
-        verified: true,
-        userId: '99',
-      });
-      const req = mockRequest();
-      req.session.verifiedPhone = '+5555555555';
-
-      const result = await controller.verifyRegistration(
-        { phoneNumber: '', credential: {} as any },
-        req,
-      );
-
-      expect(result.verified).toBe(true);
-      expect(webAuthnService.verifyRegistration).toHaveBeenCalledWith(
-        '+5555555555',
-        expect.anything(),
-      );
-    });
-
-    it('should throw when no phone number available', async () => {
-      const req = mockRequest();
-      // No verifiedPhone in session, no phoneNumber in dto
-
-      await expect(
-        controller.verifyRegistration(
-          { phoneNumber: '', credential: {} as any },
-          req,
-        ),
-      ).rejects.toThrow(BadRequestException);
     });
   });
 
   // ─────────────────────────────────────
-  //  LOGIN FLOW
+  //  GITHUB OAUTH
   // ─────────────────────────────────────
 
-  describe('GET /auth/login/options', () => {
-    it('should return authentication options', async () => {
-      webAuthnService.generateAuthenticationOptions.mockResolvedValue({
-        challenge: 'auth-challenge',
-        allowCredentials: [],
-      });
+  describe('GET /auth/github', () => {
+    it('should redirect to GitHub authorization URL', () => {
+      githubAuth.getAuthorizationUrl.mockReturnValue(
+        'https://github.com/login/oauth/authorize?client_id=test',
+      );
+      const res = mockResponse();
 
-      const result = await controller.getLoginOptions();
+      controller.githubRedirect(res);
 
-      expect(result.authenticationOptions).toEqual({
-        challenge: 'auth-challenge',
-        allowCredentials: [],
-      });
+      expect(res.redirect).toHaveBeenCalledWith(
+        'https://github.com/login/oauth/authorize?client_id=test',
+      );
     });
   });
 
-  describe('POST /auth/login/verify', () => {
-    it('should verify login and create session', async () => {
-      webAuthnService.verifyAuthentication.mockResolvedValue({
-        verified: true,
-        user: { id: 7n, phoneNumber: '+1234567890' },
+  describe('GET /auth/github/callback', () => {
+    it('should handle callback and redirect to frontend', async () => {
+      githubAuth.handleCallback.mockResolvedValue({
+        userId: '5',
+        email: 'ghuser@example.com',
+        username: 'ghuser',
       });
       const req = mockRequest();
+      const res = mockResponse();
 
-      const result = await controller.verifyLogin(
-        { credential: {} as any },
-        req,
-      );
+      await controller.githubCallback('auth-code', req, res);
 
-      expect(result.verified).toBe(true);
-      expect(result.userId).toBe('7');
-      expect(result.message).toBe('Logged in successfully');
       expect(sessionService.createSession).toHaveBeenCalledWith(
         req,
-        '7',
-        '+1234567890',
+        '5',
+        'ghuser@example.com',
       );
+      expect(res.redirect).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when code is missing', async () => {
+      const req = mockRequest();
+      const res = mockResponse();
+
+      await expect(controller.githubCallback('', req, res)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─────────────────────────────────────
+  //  TELEGRAM
+  // ─────────────────────────────────────
+
+  describe('POST /auth/telegram', () => {
+    it('should authenticate via Telegram and create session', async () => {
+      telegramAuth.authenticate.mockResolvedValue({
+        userId: '7',
+        email: null,
+        username: 'teleuser',
+      });
+      const req = mockRequest();
+
+      const result = await controller.telegramLogin(
+        {
+          id: 123,
+          first_name: 'Test',
+          auth_date: Math.floor(Date.now() / 1000),
+          hash: 'valid-hash',
+        },
+        req,
+      );
+
+      expect(result.userId).toBe('7');
+      expect(result.message).toContain('Telegram');
+      expect(sessionService.createSession).toHaveBeenCalledWith(req, '7', '');
     });
   });
 
@@ -238,7 +229,7 @@ describe('AuthController', () => {
     it('should return current user session info', () => {
       const req = mockRequest();
       req.session.userId = 'user-42';
-      req.session.phoneNumber = '+1234567890';
+      req.session.email = 'test@example.com';
       req.session.userAgent = 'TestBrowser';
       req.session.ip = '10.0.0.1';
       req.session.createdAt = 1700000000000;
@@ -247,7 +238,7 @@ describe('AuthController', () => {
 
       expect(result).toEqual({
         userId: 'user-42',
-        phoneNumber: '+1234567890',
+        email: 'test@example.com',
         sessionId: 'test-session-id',
         userAgent: 'TestBrowser',
         ip: '10.0.0.1',
@@ -273,7 +264,6 @@ describe('AuthController', () => {
 
     it('should throw when userId is not present in session', async () => {
       const req = mockRequest();
-      // userId is undefined
 
       await expect(controller.listSessions(req)).rejects.toThrow(
         BadRequestException,

@@ -14,7 +14,7 @@ export class UsersService {
       where: { id: BigInt(userId) },
       select: {
         id: true,
-        phoneNumber: true,
+        email: true,
         username: true,
         profileImage: true,
         createdAt: true,
@@ -27,7 +27,7 @@ export class UsersService {
 
     return {
       id: user.id.toString(),
-      phoneNumber: user.phoneNumber,
+      email: user.email,
       username: user.username,
       profileImage: user.profileImage,
       createdAt: user.createdAt,
@@ -81,7 +81,7 @@ export class UsersService {
       data,
       select: {
         id: true,
-        phoneNumber: true,
+        email: true,
         username: true,
         profileImage: true,
         createdAt: true,
@@ -90,7 +90,7 @@ export class UsersService {
 
     return {
       id: user.id.toString(),
-      phoneNumber: user.phoneNumber,
+      email: user.email,
       username: user.username,
       profileImage: user.profileImage,
       createdAt: user.createdAt,

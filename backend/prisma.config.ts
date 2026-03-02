@@ -7,7 +7,6 @@ export default defineConfig({
     path: 'prisma/migrations', // Default
   },
   datasource: {
-    url: env('DATABASE_URL'), // Required; throws if missing
-    // Optional: shadowDatabaseUrl: env('SHADOW_DATABASE_URL') for migrations if needed
+    url: env('DIRECT_URL'), // Direct connection for migrations (bypasses PgBouncer)
   },
 });

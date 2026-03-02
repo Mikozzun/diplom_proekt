@@ -12,10 +12,12 @@ datasource db {
 
 model User {
   id           BigInt    @id @default(autoincrement())
-  phoneNumber  String    @map("phone_number")
-  passkey      String
+  email        String?   @unique
+  passwordHash String?   @map("password_hash")
   username     String
   profileImage String?   @map("profile_image")
+  githubId     String?   @unique @map("github_id")
+  telegramId   String?   @unique @map("telegram_id")
   createdAt    DateTime? @default(now()) @map("created_at")
 
   posts                  Post[]
@@ -32,35 +34,8 @@ model User {
   userRoles              UserRole[]
   admin                  Admin?
   userPostRandomizations UserPostRandomization[]
-  credentials            Credential[]
 
   @@map("users")
-}
-
-model Credential {
-  id                  BigInt    @id @default(autoincrement())
-  userId              BigInt    @map("user_id")
-  credentialId        String    @unique @map("credential_id")
-  credentialPublicKey Bytes     @map("credential_public_key")
-  counter             BigInt    @default(0)
-  transports          String[]  @default([])
-  createdAt           DateTime? @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("credentials")
-}
-
-model OtpChallenge {
-  id          BigInt    @id @default(autoincrement())
-  phoneNumber String    @map("phone_number")
-  code        String
-  expiresAt   DateTime  @map("expires_at")
-  verified    Boolean   @default(false)
-  createdAt   DateTime? @default(now()) @map("created_at")
-
-  @@index([phoneNumber, code])
-  @@map("otp_challenges")
 }
 
 model Session {

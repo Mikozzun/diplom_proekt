@@ -43,7 +43,7 @@ describe('UsersService', () => {
     it('should return the user profile', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 1n,
-        phoneNumber: '+1234567890',
+        email: 'alice@example.com',
         username: 'alice',
         profileImage: 'avatar.png',
         createdAt: new Date('2025-01-01'),
@@ -53,7 +53,7 @@ describe('UsersService', () => {
 
       expect(result).toEqual({
         id: '1',
-        phoneNumber: '+1234567890',
+        email: 'alice@example.com',
         username: 'alice',
         profileImage: 'avatar.png',
         createdAt: new Date('2025-01-01'),
@@ -62,7 +62,7 @@ describe('UsersService', () => {
         where: { id: 1n },
         select: {
           id: true,
-          phoneNumber: true,
+          email: true,
           username: true,
           profileImage: true,
           createdAt: true,
@@ -117,7 +117,7 @@ describe('UsersService', () => {
     it('should update username', async () => {
       prisma.user.update.mockResolvedValue({
         id: 1n,
-        phoneNumber: '+1234567890',
+        email: 'alice@example.com',
         username: 'new-name',
         profileImage: null,
         createdAt: new Date('2025-01-01'),
@@ -138,7 +138,7 @@ describe('UsersService', () => {
     it('should update profile image', async () => {
       prisma.user.update.mockResolvedValue({
         id: 1n,
-        phoneNumber: '+1234567890',
+        email: 'alice@example.com',
         username: 'alice',
         profileImage: 'new-avatar.jpg',
         createdAt: new Date('2025-01-01'),
@@ -154,7 +154,7 @@ describe('UsersService', () => {
     it('should return current profile when no fields provided', async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 1n,
-        phoneNumber: '+1234567890',
+        email: 'alice@example.com',
         username: 'alice',
         profileImage: null,
         createdAt: new Date('2025-01-01'),

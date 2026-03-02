@@ -44,7 +44,7 @@ describe('UsersController', () => {
       const profile = {
         id: '1',
         username: 'alice',
-        phoneNumber: '+1234567890',
+        email: 'alice@example.com',
         profileImage: null,
       };
       usersService.getProfile.mockResolvedValue(profile);
