@@ -2,13 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="description" content="Authentication success page that redirects to the test area." />
+    <meta name="keywords" content="authentication, success, redirect, test" />
     <title>Auth Success</title>
-    <meta http-equiv="refresh" content="0; url=/test/" />
+    <meta http-equiv="refresh" content="0; url=/test/?auth=github-success" />
   </head>
   <body>
     <p>Redirecting…</p>
     <script>
-      window.location.href = '/test/';
+        try {
+          sessionStorage.setItem('frogger.github.success', '1');
+        } catch {
+          // Ignore storage errors and continue redirect
+        }
+        window.location.replace('/test/?auth=github-success');
     </script>
   </body>
 </html>

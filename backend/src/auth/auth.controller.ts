@@ -14,71 +14,24 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { EmailAuthService } from './email-auth.service.js';
 import { GithubAuthService } from './github-auth.service.js';
 import { TelegramAuthService } from './telegram-auth.service.js';
 import { SessionService } from './session.service.js';
 import { SessionGuard } from './guards/session.guard.js';
-import { RegisterDto, LoginDto, TelegramAuthDto } from './dto/index.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { TelegramAuthDto, TelegramCodeVerifyDto } from './dto/index.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly emailAuth: EmailAuthService,
     private readonly githubAuth: GithubAuthService,
     private readonly telegramAuth: TelegramAuthService,
     private readonly sessionService: SessionService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ───────────────────────────────────────────────
-  //  A. EMAIL + PASSWORD
-  // ───────────────────────────────────────────────
-
-  /**
-   * Register a new user with email and password.
-   * POST /auth/register
-   */
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto, @Req() req: Request) {
-    const result = await this.emailAuth.register(
-      dto.email,
-      dto.password,
-      dto.username,
-    );
-
-    // Auto-login after registration
-    this.sessionService.createSession(req, result.userId, result.email!);
-
-    return {
-      userId: result.userId,
-      email: result.email,
-      username: result.username,
-      message: 'Registered and logged in successfully',
-    };
-  }
-
-  /**
-   * Login with email and password.
-   * POST /auth/login
-   */
-  @Post('login')
-  @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Req() req: Request) {
-    const result = await this.emailAuth.login(dto.email, dto.password);
-
-    this.sessionService.createSession(req, result.userId, result.email);
-
-    return {
-      userId: result.userId,
-      email: result.email,
-      username: result.username,
-      message: 'Logged in successfully',
-    };
-  }
-
-  // ───────────────────────────────────────────────
-  //  B. GITHUB OAUTH
+  //  A. GITHUB OAUTH
   // ───────────────────────────────────────────────
 
   /**
@@ -114,8 +67,39 @@ export class AuthController {
   }
 
   // ───────────────────────────────────────────────
-  //  C. TELEGRAM LOGIN WIDGET
+  //  B. TELEGRAM LOGIN WIDGET
   // ───────────────────────────────────────────────
+
+  /**
+   * Generate one-time Telegram login code.
+   * POST /auth/telegram/code/request
+   */
+  @Post('telegram/code/request')
+  @HttpCode(HttpStatus.OK)
+  async telegramRequestCode() {
+    return this.telegramAuth.createLoginCode();
+  }
+
+  /**
+   * Verify one-time Telegram login code via bot updates.
+   * POST /auth/telegram/code/verify
+   */
+  @Post('telegram/code/verify')
+  @HttpCode(HttpStatus.OK)
+  async telegramVerifyCode(
+    @Body() dto: TelegramCodeVerifyDto,
+    @Req() req: Request,
+  ) {
+    const result = await this.telegramAuth.authenticateWithCode(dto.code);
+    this.sessionService.createSession(req, result.userId, result.email ?? '');
+
+    return {
+      userId: result.userId,
+      email: result.email,
+      username: result.username,
+      message: 'Logged in via Telegram code successfully',
+    };
+  }
 
   /**
    * Verify Telegram Login Widget data and create a session.
@@ -136,6 +120,53 @@ export class AuthController {
     };
   }
 
+  /**
+   * Handle Telegram Login Widget redirect flow (data-auth-url).
+   * GET /auth/telegram/callback
+   */
+  @Get('telegram/callback')
+  async telegramCallback(
+    @Query('id') idRaw: string,
+    @Query('auth_date') authDateRaw: string,
+    @Query('hash') hash: string,
+    @Query('first_name') firstName: string | undefined,
+    @Query('last_name') lastName: string | undefined,
+    @Query('username') username: string | undefined,
+    @Query('photo_url') photoUrl: string | undefined,
+    @Query('returnTo') returnToRaw: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const id = Number(idRaw);
+    const authDate = Number(authDateRaw);
+
+    if (!Number.isFinite(id) || !Number.isFinite(authDate) || !hash) {
+      throw new BadRequestException(
+        'Missing or invalid Telegram callback data',
+      );
+    }
+
+    const result = await this.telegramAuth.authenticate({
+      id,
+      auth_date: authDate,
+      hash,
+      first_name: firstName,
+      last_name: lastName,
+      username,
+      photo_url: photoUrl,
+    });
+
+    this.sessionService.createSession(req, result.userId, result.email ?? '');
+
+    const redirectPath = this.getSafeReturnPath(returnToRaw);
+    const redirectUrl = new URL(
+      redirectPath,
+      `${req.protocol}://${req.get('host')}`,
+    );
+    redirectUrl.searchParams.set('auth', 'telegram-success');
+    res.redirect(redirectUrl.pathname + redirectUrl.search);
+  }
+
   // ───────────────────────────────────────────────
   //  SESSION MANAGEMENT
   // ───────────────────────────────────────────────
@@ -146,14 +177,32 @@ export class AuthController {
    */
   @UseGuards(SessionGuard)
   @Get('me')
-  me(@Req() req: Request) {
+  async me(@Req() req: Request) {
+    const userId = req.session.userId;
+    if (!userId) {
+      throw new BadRequestException('No active session');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: BigInt(userId) },
+      select: {
+        githubId: true,
+        telegramId: true,
+        passwordHash: true,
+      },
+    });
+
     return {
-      userId: req.session.userId,
+      userId,
       email: req.session.email,
       sessionId: req.sessionID,
       userAgent: req.session.userAgent,
       ip: req.session.ip,
       createdAt: req.session.createdAt,
+      authStatus: {
+        github: Boolean(user?.githubId),
+        telegram: Boolean(user?.telegramId),
+      },
     };
   }
 
@@ -199,10 +248,13 @@ export class AuthController {
    * Logout current session.
    * POST /auth/logout
    */
-  @UseGuards(SessionGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Req() req: Request) {
+    if (!req.session?.userId) {
+      return { message: 'Already logged out' };
+    }
+
     return new Promise<{ message: string }>((resolve, reject) => {
       req.session.destroy((err) => {
         if (err) {
@@ -220,13 +272,27 @@ export class AuthController {
    * Logout from all devices.
    * POST /auth/logout/all
    */
-  @UseGuards(SessionGuard)
   @Post('logout/all')
   @HttpCode(HttpStatus.OK)
   async logoutAll(@Req() req: Request) {
     const userId = req.session.userId;
-    if (!userId) throw new BadRequestException('No active session');
+    if (!userId) {
+      return { message: 'Already logged out from all devices' };
+    }
+
     const count = await this.sessionService.destroyAllUserSessions(userId);
     return { message: `Destroyed ${count} session(s)` };
+  }
+
+  private getSafeReturnPath(returnToRaw: string | undefined): string {
+    if (!returnToRaw) {
+      return '/test';
+    }
+
+    if (!returnToRaw.startsWith('/') || returnToRaw.startsWith('//')) {
+      return '/test';
+    }
+
+    return returnToRaw;
   }
 }

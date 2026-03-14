@@ -43,9 +43,15 @@ COPY --from=builder /app/dist ./dist
 # Copy public static files (test frontend)
 COPY public ./public
 
+# Copy bot and process launcher
+COPY bot_folder ./bot_folder
+COPY start-services.mjs ./start-services.mjs
+
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV BOT_PORT=3001
 
 EXPOSE 3000
+EXPOSE 3001
 
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "start-services.mjs"]

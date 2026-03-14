@@ -6,6 +6,7 @@ primary_region = 'ams'
 [env]
   NODE_ENV = 'production'
   PORT = '3000'
+  BOT_PORT = '3001'
 
 [http_service]
   internal_port = 3000
