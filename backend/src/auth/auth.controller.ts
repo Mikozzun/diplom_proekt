@@ -39,8 +39,18 @@ export class AuthController {
    * GET /auth/github
    */
   @Get('github')
-  githubRedirect(@Res() res: Response) {
-    const url = this.githubAuth.getAuthorizationUrl();
+  githubRedirect(
+    @Query('mode') modeRaw: string | undefined,
+    @Query('returnTo') returnToRaw: string | undefined,
+    @Res() res: Response,
+  ) {
+    const mode = modeRaw === 'popup' ? 'popup' : 'redirect';
+    const url = this.githubAuth.getAuthorizationUrl({
+      state: this.createGithubState({
+        mode,
+        returnTo: this.getSafeReturnPath(returnToRaw),
+      }),
+    });
     res.redirect(url);
   }
 
@@ -51,6 +61,7 @@ export class AuthController {
   @Get('github/callback')
   async githubCallback(
     @Query('code') code: string,
+    @Query('state') stateRaw: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
@@ -61,9 +72,23 @@ export class AuthController {
     const result = await this.githubAuth.handleCallback(code);
     this.sessionService.createSession(req, result.userId, result.email ?? '');
 
-    // Redirect to frontend after successful login
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
-    res.redirect(`${frontendUrl}/auth/success`);
+    const githubState = this.parseGithubState(stateRaw);
+    const redirectPath = githubState.returnTo;
+
+    if (githubState.mode === 'popup') {
+      res
+        .status(HttpStatus.OK)
+        .type('html')
+        .send(this.renderGithubPopupResponse(req, redirectPath));
+      return;
+    }
+
+    const redirectUrl = new URL(
+      redirectPath,
+      `${req.protocol}://${req.get('host')}`,
+    );
+    redirectUrl.searchParams.set('auth', 'github-success');
+    res.redirect(redirectUrl.pathname + redirectUrl.search);
   }
 
   // ───────────────────────────────────────────────
@@ -186,15 +211,24 @@ export class AuthController {
     const user = await this.prisma.user.findUnique({
       where: { id: BigInt(userId) },
       select: {
+        username: true,
+        email: true,
         githubId: true,
         telegramId: true,
-        passwordHash: true,
       },
     });
 
+    const authProvider = user?.githubId
+      ? 'github'
+      : user?.telegramId
+        ? 'telegram'
+        : 'unknown';
+
     return {
       userId,
-      email: req.session.email,
+      email: user?.email ?? req.session.email,
+      username: user?.username ?? null,
+      authProvider,
       sessionId: req.sessionID,
       userAgent: req.session.userAgent,
       ip: req.session.ip,
@@ -294,5 +328,87 @@ export class AuthController {
     }
 
     return returnToRaw;
+  }
+
+  private createGithubState(input: {
+    mode: 'popup' | 'redirect';
+    returnTo: string;
+  }): string {
+    return Buffer.from(JSON.stringify(input), 'utf8').toString('base64url');
+  }
+
+  private parseGithubState(stateRaw: string | undefined): {
+    mode: 'popup' | 'redirect';
+    returnTo: string;
+  } {
+    if (!stateRaw) {
+      return {
+        mode: 'redirect',
+        returnTo: '/test',
+      };
+    }
+
+    try {
+      const decoded = JSON.parse(
+        Buffer.from(stateRaw, 'base64url').toString('utf8'),
+      ) as {
+        mode?: string;
+        returnTo?: string;
+      };
+
+      return {
+        mode: decoded.mode === 'popup' ? 'popup' : 'redirect',
+        returnTo: this.getSafeReturnPath(decoded.returnTo),
+      };
+    } catch {
+      return {
+        mode: 'redirect',
+        returnTo: '/test',
+      };
+    }
+  }
+
+  private renderGithubPopupResponse(req: Request, returnTo: string): string {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const fallbackUrl = new URL(returnTo, origin);
+    fallbackUrl.searchParams.set('auth', 'github-success');
+
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>GitHub login completed</title>
+  </head>
+  <body>
+    <script>
+      (() => {
+        const targetOrigin = ${JSON.stringify(origin)};
+        const fallbackPath = ${JSON.stringify(
+          fallbackUrl.pathname + fallbackUrl.search,
+        )};
+
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(
+              { type: 'frogger:github-auth-success' },
+              targetOrigin,
+            );
+            window.close();
+            setTimeout(() => {
+              if (!window.closed) {
+                window.location.replace(fallbackPath);
+              }
+            }, 200);
+            return;
+          }
+        } catch {
+          // Fall back to same-window redirect when opener access is unavailable.
+        }
+
+        window.location.replace(fallbackPath);
+      })();
+    </script>
+  </body>
+</html>`;
   }
 }

@@ -14,6 +14,10 @@ interface GitHubUser {
   email: string | null;
 }
 
+interface GitHubAuthorizationOptions {
+  state?: string;
+}
+
 @Injectable()
 export class GithubAuthService {
   private readonly logger = new Logger(GithubAuthService.name);
@@ -29,12 +33,16 @@ export class GithubAuthService {
   /**
    * Build the GitHub OAuth authorization URL.
    */
-  getAuthorizationUrl(): string {
+  getAuthorizationUrl(options: GitHubAuthorizationOptions = {}): string {
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: this.callbackUrl,
       scope: 'read:user user:email',
     });
+
+    if (options.state) {
+      params.set('state', options.state);
+    }
 
     return `https://github.com/login/oauth/authorize?${params.toString()}`;
   }

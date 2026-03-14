@@ -10,8 +10,8 @@ export declare class AuthController {
     private readonly sessionService;
     private readonly prisma;
     constructor(githubAuth: GithubAuthService, telegramAuth: TelegramAuthService, sessionService: SessionService, prisma: PrismaService);
-    githubRedirect(res: Response): void;
-    githubCallback(code: string, req: Request, res: Response): Promise<void>;
+    githubRedirect(modeRaw: string | undefined, returnToRaw: string | undefined, res: Response): void;
+    githubCallback(code: string, stateRaw: string | undefined, req: Request, res: Response): Promise<void>;
     telegramRequestCode(): Promise<{
         code: string;
         expiresInSeconds: number;
@@ -34,6 +34,8 @@ export declare class AuthController {
     me(req: Request): Promise<{
         userId: string;
         email: string | undefined;
+        username: string | null;
+        authProvider: string;
         sessionId: string;
         userAgent: string | undefined;
         ip: string | undefined;
@@ -62,4 +64,7 @@ export declare class AuthController {
         message: string;
     }>;
     private getSafeReturnPath;
+    private createGithubState;
+    private parseGithubState;
+    private renderGithubPopupResponse;
 }

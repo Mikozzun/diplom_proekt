@@ -31,18 +31,34 @@ let AuthController = class AuthController {
         this.sessionService = sessionService;
         this.prisma = prisma;
     }
-    githubRedirect(res) {
-        const url = this.githubAuth.getAuthorizationUrl();
+    githubRedirect(modeRaw, returnToRaw, res) {
+        const mode = modeRaw === 'popup' ? 'popup' : 'redirect';
+        const url = this.githubAuth.getAuthorizationUrl({
+            state: this.createGithubState({
+                mode,
+                returnTo: this.getSafeReturnPath(returnToRaw),
+            }),
+        });
         res.redirect(url);
     }
-    async githubCallback(code, req, res) {
+    async githubCallback(code, stateRaw, req, res) {
         if (!code) {
             throw new common_1.BadRequestException('Missing authorization code');
         }
         const result = await this.githubAuth.handleCallback(code);
         this.sessionService.createSession(req, result.userId, result.email ?? '');
-        const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
-        res.redirect(`${frontendUrl}/auth/success`);
+        const githubState = this.parseGithubState(stateRaw);
+        const redirectPath = githubState.returnTo;
+        if (githubState.mode === 'popup') {
+            res
+                .status(common_1.HttpStatus.OK)
+                .type('html')
+                .send(this.renderGithubPopupResponse(req, redirectPath));
+            return;
+        }
+        const redirectUrl = new URL(redirectPath, `${req.protocol}://${req.get('host')}`);
+        redirectUrl.searchParams.set('auth', 'github-success');
+        res.redirect(redirectUrl.pathname + redirectUrl.search);
     }
     async telegramRequestCode() {
         return this.telegramAuth.createLoginCode();
@@ -96,14 +112,22 @@ let AuthController = class AuthController {
         const user = await this.prisma.user.findUnique({
             where: { id: BigInt(userId) },
             select: {
+                username: true,
+                email: true,
                 githubId: true,
                 telegramId: true,
-                passwordHash: true,
             },
         });
+        const authProvider = user?.githubId
+            ? 'github'
+            : user?.telegramId
+                ? 'telegram'
+                : 'unknown';
         return {
             userId,
-            email: req.session.email,
+            email: user?.email ?? req.session.email,
+            username: user?.username ?? null,
+            authProvider,
             sessionId: req.sessionID,
             userAgent: req.session.userAgent,
             ip: req.session.ip,
@@ -164,22 +188,89 @@ let AuthController = class AuthController {
         }
         return returnToRaw;
     }
+    createGithubState(input) {
+        return Buffer.from(JSON.stringify(input), 'utf8').toString('base64url');
+    }
+    parseGithubState(stateRaw) {
+        if (!stateRaw) {
+            return {
+                mode: 'redirect',
+                returnTo: '/test',
+            };
+        }
+        try {
+            const decoded = JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8'));
+            return {
+                mode: decoded.mode === 'popup' ? 'popup' : 'redirect',
+                returnTo: this.getSafeReturnPath(decoded.returnTo),
+            };
+        }
+        catch {
+            return {
+                mode: 'redirect',
+                returnTo: '/test',
+            };
+        }
+    }
+    renderGithubPopupResponse(req, returnTo) {
+        const origin = `${req.protocol}://${req.get('host')}`;
+        const fallbackUrl = new URL(returnTo, origin);
+        fallbackUrl.searchParams.set('auth', 'github-success');
+        return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>GitHub login completed</title>
+  </head>
+  <body>
+    <script>
+      (() => {
+        const targetOrigin = ${JSON.stringify(origin)};
+        const fallbackPath = ${JSON.stringify(fallbackUrl.pathname + fallbackUrl.search)};
+
+        try {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(
+              { type: 'frogger:github-auth-success' },
+              targetOrigin,
+            );
+            window.close();
+            setTimeout(() => {
+              if (!window.closed) {
+                window.location.replace(fallbackPath);
+              }
+            }, 200);
+            return;
+          }
+        } catch {
+          // Fall back to same-window redirect when opener access is unavailable.
+        }
+
+        window.location.replace(fallbackPath);
+      })();
+    </script>
+  </body>
+</html>`;
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Get)('github'),
-    __param(0, (0, common_1.Res)()),
+    __param(0, (0, common_1.Query)('mode')),
+    __param(1, (0, common_1.Query)('returnTo')),
+    __param(2, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "githubRedirect", null);
 __decorate([
     (0, common_1.Get)('github/callback'),
     __param(0, (0, common_1.Query)('code')),
-    __param(1, (0, common_1.Req)()),
-    __param(2, (0, common_1.Res)()),
+    __param(1, (0, common_1.Query)('state')),
+    __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:paramtypes", [String, Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "githubCallback", null);
 __decorate([

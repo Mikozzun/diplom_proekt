@@ -133,14 +133,14 @@
 <body>
   <div class="container">
     <h1>Frogger Auth Test</h1>
-    <p class="subtitle">Minimal frontend for testing all 3 auth methods</p>
+    <p class="subtitle">Minimal frontend for testing GitHub OAuth and Telegram login</p>
     <div id="authIndicator" class="auth-indicator hidden">
       Authenticated successfully.
     </div>
 
     <h2> GitHub OAuth</h2>
     <div class="card">
-      <a id="githubBtn" class="btn btn-github btn-block" href="/auth/github">Login with GitHub</a>
+      <a id="githubBtn" class="btn btn-github btn-block" href="/auth/github?returnTo=%2Ftest">Login with GitHub</a>
       </div>
 
     <h2> Telegram Login</h2>
@@ -190,11 +190,21 @@
                                             const telegramWidgetContainer = $('telegramWidgetContainer');
                                             const telegramPausedNotice = $('telegramPausedNotice');
                                             const githubSuccessKey = 'frogger.github.success';
+                                              const githubPopupMessageType = 'frogger:github-auth-success';
                                             const telegramPausedKey = 'frogger.telegram.widget.paused';
+                                              let githubPopup = null;
+                                              let githubPopupWatcher = null;
       const log = (data) => {
         $('status').textContent =
           typeof data === 'string' ? data : JSON.stringify(data, null, 2);
       };
+
+                                              const clearGithubPopupWatcher = () => {
+                                                if (githubPopupWatcher) {
+                                                  window.clearInterval(githubPopupWatcher);
+                                                  githubPopupWatcher = null;
+                                                }
+                                              };
 
                                             const setLoggedInState = (loggedIn) => {
                                               githubButton.classList.toggle('hidden', loggedIn);
@@ -256,6 +266,8 @@
 
                                             const clearClientAuthState = () => {
                                               setLoggedInState(false);
+                                              clearGithubPopupWatcher();
+                                              githubPopup = null;
 
                                               clearBrowserStorage();
                                               clearClientCookies();
@@ -267,7 +279,63 @@
                                               setTelegramWidgetPaused(true);
                                             };
 
-                                            const handleAuthReturn = () => {
+                                              const finishGithubPopupLogin = async () => {
+                                                clearGithubPopupWatcher();
+                                                githubPopup = null;
+                                                sessionStorage.setItem(githubSuccessKey, '1');
+                                                await handleAuthReturn();
+                                              };
+
+                                              const openGithubPopup = (event) => {
+                                                event.preventDefault();
+
+                                                const width = 720;
+                                                const height = 820;
+                                                const left = Math.max(window.screenX + (window.outerWidth - width) / 2, 0);
+                                                const top = Math.max(window.screenY + (window.outerHeight - height) / 2, 0);
+                                                const popupUrl = `${window.location.origin}/auth/github?mode=popup&returnTo=${encodeURIComponent('/test')}`;
+                                                const popupFeatures = [
+                                                  `width=${width}`,
+                                                  `height=${height}`,
+                                                  `left=${Math.round(left)}`,
+                                                  `top=${Math.round(top)}`,
+                                                  'resizable=yes',
+                                                  'scrollbars=yes',
+                                                ].join(',');
+
+                                                githubPopup = window.open(
+                                                  popupUrl,
+                                                  'froggerGithubAuth',
+                                                  popupFeatures,
+                                                );
+
+                                                if (!githubPopup) {
+                                                  log('GitHub popup was blocked. Falling back to full-page redirect.');
+                                                  window.location.href = githubButton.href;
+                                                  return;
+                                                }
+
+                                                clearGithubPopupWatcher();
+                                                githubPopupWatcher = window.setInterval(() => {
+                                                  if (!githubPopup || !githubPopup.closed) {
+                                                    return;
+                                                  }
+
+                                                  clearGithubPopupWatcher();
+                                                  githubPopup = null;
+                                                  void window.doMe(
+                                                    'GitHub popup closed. Session check complete.',
+                                                    {
+                                                      silentUnauthorized: true,
+                                                      skipNoSessionMessage: true,
+                                                    },
+                                                  );
+                                                }, 500);
+
+                                                githubPopup.focus();
+                                              };
+
+                                              const handleAuthReturn = async () => {
                                               const url = new URL(window.location.href);
                                               const hasGithubParam = url.searchParams.get('auth') === 'github-success';
                                               const hasTelegramParam =
@@ -275,22 +343,27 @@
                                               const hasGithubSessionFlag = sessionStorage.getItem(githubSuccessKey) === '1';
 
                                               if (!hasGithubParam && !hasGithubSessionFlag && !hasTelegramParam) {
-                                                return;
+                                                return false;
                                               }
-
-                                              setLoggedInState(true);
-                                              log(
-                                                hasTelegramParam
-                                                  ? 'Telegram login successful. You are authenticated.'
-                                                  : 'GitHub login successful. You are authenticated.',
-                                              );
 
                                               sessionStorage.removeItem(githubSuccessKey);
                                               url.searchParams.delete('auth');
                                               window.history.replaceState({}, '', url.pathname + url.search);
+
+                                                const provider = hasTelegramParam ? 'Telegram' : 'GitHub';
+                                                await window.doMe(
+                                                  `Login successful. Logged in as ${provider} user.`,
+                                                  {
+                                                    silentUnauthorized: true,
+                                                    skipNoSessionMessage: true,
+                                                  },
+                                                );
+                                                return true;
                                             };
 
-                                            const request = async (method, path, body) => {
+                                                const request = async (method, path, body, options = {}) => {
+                                                  const { silent = false, silentUnauthorized = false } = options;
+
                                               try {
                                               const res = await fetch(`${window.location.origin}${path}`, {
             method,
@@ -303,6 +376,10 @@
             .catch(() => ({ status: res.status, statusText: res.statusText }));
 
                                               if (res.status === 401 && path === '/auth/me') {
+                                                if (silentUnauthorized) {
+                                                  return { ...json, _httpStatus: res.status };
+                                                }
+
                                                 log({
                                                   message: 'No active session yet. Please login first.',
                                                   details: json,
@@ -322,7 +399,9 @@
                                                 return { ...json, _httpStatus: res.status };
                                               }
 
-          log(json);
+                                                if (!silent) {
+                                                  log(json);
+                                                }
                                               return { ...json, _httpStatus: res.status };
         } catch (err) {
           log(`Error: ${err.message}`);
@@ -340,6 +419,56 @@
                                               }
                                               return false;
                                             };
+
+                                                const describeIdentity = (data) => {
+                                                  const provider = String(data?.authProvider ?? '').toLowerCase();
+                                                  const providerLabel =
+                                                    provider === 'github'
+                                                      ? 'GitHub'
+                                                      : provider === 'telegram'
+                                                        ? 'Telegram'
+                                                        : 'Unknown';
+                                                  const displayName = data?.username ?? data?.email ?? `userId ${data?.userId}`;
+                                                  return `${providerLabel} user ${displayName}`;
+                                                };
+
+                                                const showSessionIdentity = (data, message) => {
+                                                  const githubStatus = Boolean(data?.authStatus?.github);
+                                                  const telegramStatus = Boolean(data?.authStatus?.telegram);
+
+                                                  log({
+                                                    message,
+                                                    loggedInAs: describeIdentity(data),
+                                                    userId: data.userId,
+                                                    username: data.username,
+                                                    email: data.email,
+                                                    authProvider: data.authProvider,
+                                                    authStatus: {
+                                                      github: githubStatus,
+                                                      telegram: telegramStatus,
+                                                    },
+                                                    session: {
+                                                      id: data.sessionId,
+                                                      ip: data.ip,
+                                                      userAgent: data.userAgent,
+                                                      createdAt: data.createdAt,
+                                                    },
+                                                  });
+                                                };
+
+                                                window.addEventListener('message', (event) => {
+                                                  if (event.origin !== window.location.origin) {
+                                                    return;
+                                                  }
+
+                                                  if (event.data?.type !== githubPopupMessageType) {
+                                                    return;
+                                                  }
+
+                                                  void finishGithubPopupLogin();
+                                                });
+
+                                                githubButton.addEventListener('click', openGithubPopup);
 
                                             window.resumeTelegramWidget = () => {
                                               setTelegramWidgetPaused(false);
@@ -375,33 +504,25 @@
                                                 });
     };
 
-    window.doMe = () => request('GET', '/auth/me').then((data) => {
+        window.doMe = (
+          successMessage = 'Current session identity and auth provider status.',
+          { silentUnauthorized = false, skipNoSessionMessage = false } = {},
+        ) => request('GET', '/auth/me', undefined, {
+          silent: true,
+          silentUnauthorized,
+        }).then((data) => {
       setLoggedInState(Boolean(data?.userId));
 
       if (!data?.userId) {
+        if (!skipNoSessionMessage) {
+          log('No active session yet. Please login first.');
+        }
         return data;
-    }
+      }
 
-    const githubStatus = Boolean(data?.authStatus?.github);
-    const telegramStatus = Boolean(data?.authStatus?.telegram);
-    log({
-      message: 'Current session identity and auth provider status.',
-      userId: data.userId,
-      email: data.email,
-      authStatus: {
-        github: githubStatus,
-        telegram: telegramStatus,
-      },
-      session: {
-        id: data.sessionId,
-        ip: data.ip,
-        userAgent: data.userAgent,
-        createdAt: data.createdAt,
-      },
-    });
-
-    return data;
-  });
+        showSessionIdentity(data, successMessage);
+        return data;
+      });
       window.doLogout = async () => {
         clearClientAuthState();
         const result = await post('/auth/logout');
@@ -442,18 +563,26 @@
                   window.destroySession = (sid) =>
                     request('DELETE', `/auth/sessions/${sid}`).then(window.doListSessions);
 
-                                            if (['/auth/success', '/test/auth/success'].includes(location.pathname)) {
-                                              log('GitHub OAuth successful! Checking session...');
-                                              setTimeout(() => setLoggedInState(true), 500);
-      }
-
                                             setLoggedInState(false);
                                             if (sessionStorage.getItem(telegramPausedKey) === '1') {
                                               setTelegramWidgetPaused(true);
                                             } else {
                                               setTelegramWidgetPaused(false);
                                             }
-                                            handleAuthReturn();
+
+  handleAuthReturn().then((handled) => {
+    if (handled) {
+      return;
+    }
+
+    void window.doMe(
+      'Session restored after refresh. Logged in as saved user.',
+      {
+        silentUnauthorized: true,
+        skipNoSessionMessage: true,
+      },
+    );
+  });
     </script>
   </body>
 
