@@ -11,6 +11,8 @@ export const env = {
     process.env.JWT_REFRESH_SECRET || process.env.SESSION_SECRET! + '_refresh',
   clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',
   clerkSecretKey: process.env.CLERK_SECRET_KEY || '',
+  clerkJwksUrl: process.env.CLERK_JWKS_URL || '',
+  clerkFrontendApi: process.env.CLERK_FRONTEND_API || '',
   frontendUrl: process.env.FRONTEND_URL!,
   corsOrigin: process.env.CORS_ORIGIN!,
   nodeEnv: process.env.NODE_ENV || 'development',

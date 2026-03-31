@@ -9,6 +9,20 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
+  transform: {
+    '^.+\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          module: 'commonjs',
+          moduleResolution: 'node',
+          esModuleInterop: true,
+          target: 'ES2020',
+          verbatimModuleSyntax: false,
+        },
+      },
+    ],
+  },
   coverageDirectory: 'coverage',
   coveragePathIgnorePatterns: ['/node_modules/', '/__tests__/'],
   coverageThreshold: {
