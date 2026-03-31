@@ -1,11 +1,13 @@
 /* Profile Page Styles */
 .profile-page {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
+  overflow: hidden;
 }
 
 .profile-container {

@@ -3,9 +3,21 @@ import useAuth from '../features/auth/hooks/useAuth';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import './ProfilePage.css';
+import '../components/FrogBackground'
+import FrogBackground from '../components/FrogBackground';
+import authService from '../features/auth/services/authService';
+import { useEffect } from 'react';
 
 const ProfilePage = () => {
   const { user, logout } = useAuth();
+
+  const mockAuthUser = () => {
+    authService.mockUser();
+  };
+
+  useEffect(() => {
+    mockAuthUser();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -16,7 +28,11 @@ const ProfilePage = () => {
     return (
       <div className="page profile-page">
         <Card className="profile-card">
-          <p>Please log in to view your profile.</p>
+          <p style={
+            {
+              color: "black",
+            }
+          }>Please log in to view your profile.</p>
           <Button onClick={() => window.location.href = '/login'}>
             Go to Login
           </Button>

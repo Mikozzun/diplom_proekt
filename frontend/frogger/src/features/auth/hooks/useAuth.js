@@ -47,13 +47,31 @@ const useAuth = () => {
     setError(null);
   }, []);
 
+  const signup = useCallback(async (userData) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await authService.signup(userData);
+      setIsAuthenticated(true);
+      setUser(response.user);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     isAuthenticated,
     user,
     loading,
     error,
     login,
-    logout
+    logout,
+    signup
   };
 };
 
