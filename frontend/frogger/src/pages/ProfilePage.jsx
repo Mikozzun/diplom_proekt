@@ -55,7 +55,11 @@ const ProfilePage = () => {
             <div className="profile-info">
               <h2 className="profile-name">{user.name}</h2>
               <p className="profile-email">{user.email}</p>
-
+                        <p style={
+            {
+              color: "black",
+            }
+          }>Это мок! В useeffect измени фигню чтобы показывался юзер</p>
               <div className="profile-details">
                 <div className="detail-item">
                   <span className="detail-label">User ID:</span>
