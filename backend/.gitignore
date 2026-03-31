@@ -1,5 +1,9 @@
-/node_modules
-/.vscode
-
-# VS Code Configuration
-**/.vscode/
+node_modules/
+dist/
+coverage/
+.env
+*.key
+*.pem
+.vscode/
+memory-bank/
+.vercel/
