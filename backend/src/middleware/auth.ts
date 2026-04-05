@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { getAuth } from '@clerk/express';
+import { fromNodeHeaders } from 'better-auth/node';
+import { auth } from '../lib/auth';
 import { verifyAccessToken } from '../utils/jwt';
 import { prisma } from '../config/database';
 
@@ -8,6 +9,7 @@ export const authenticate = async (
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
+  // Legacy JWT bearer token support
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     try {
@@ -17,16 +19,14 @@ export const authenticate = async (
     } catch {}
   }
 
+  // Better Auth session (cookie-based)
   try {
-    const auth = getAuth(req);
-    if (auth?.userId) {
-      const user = await prisma.user.findFirst({
-        where: { clerkId: auth.userId },
-      });
-      if (user) {
-        req.userId = user.id;
-        return next();
-      }
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    if (session?.user) {
+      req.userId = BigInt(session.user.id);
+      return next();
     }
   } catch {}
 
@@ -45,6 +45,18 @@ export const optionalAuth = async (
       req.userId = BigInt(payload.userId);
     } catch {}
   }
+
+  if (!req.userId) {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(req.headers),
+      });
+      if (session?.user) {
+        req.userId = BigInt(session.user.id);
+      }
+    } catch {}
+  }
+
   next();
 };
 

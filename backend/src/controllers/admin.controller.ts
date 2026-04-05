@@ -110,3 +110,71 @@ export const getMetrics = async (
     next(err);
   }
 };
+
+export const deleteUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    await adminService.adminDeleteUser(BigInt(req.params.userId as string));
+    sendNoContent(res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deletePost = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    await adminService.adminDeletePost(BigInt(req.params.postId as string));
+    sendNoContent(res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const batchDeleteUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const ids = (req.body.ids as string[]).map((id) => BigInt(id));
+    const result = await adminService.adminBatchDeleteUsers(ids);
+    sendSuccess(res, { deleted: result.count });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const batchDeletePosts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const ids = (req.body.ids as string[]).map((id) => BigInt(id));
+    const result = await adminService.adminBatchDeletePosts(ids);
+    sendSuccess(res, { deleted: result.count });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAllPosts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { page, limit } = req.query as { page?: string; limit?: string };
+    const result = await adminService.adminGetAllPosts(page, limit);
+    sendPaginated(res, result.posts, result.meta);
+  } catch (err) {
+    next(err);
+  }
+};

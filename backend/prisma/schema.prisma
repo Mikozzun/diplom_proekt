@@ -8,13 +8,19 @@ datasource db {
 }
 
 model User {
-  id           BigInt   @id @default(autoincrement())
-  username     String   @unique
-  phoneNumber  String   @map("phone_number")
-  passkey      String
-  profileImage String?  @map("profile_image")
-  clerkId      String?  @unique @map("clerk_id")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id              BigInt    @id @default(autoincrement())
+  name            String
+  email           String    @unique
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  image           String?
+  username        String?   @unique
+  displayUsername String?   @map("display_username")
+  phoneNumber          String?   @map("phone_number")
+  phoneNumberVerified  Boolean   @default(false) @map("phone_number_verified")
+  passkey         String?
+  profileImage    String?   @map("profile_image")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime? @updatedAt @map("updated_at") @db.Timestamptz
 
   posts              Post[]
   comments           Comment[]
@@ -32,6 +38,8 @@ model User {
   randomizations     UserPostRandomization[]
   sessions           Session[]
   passkeyCredentials PasskeyCredential[]
+  accounts           Account[]
+  baSessions         BaSession[]
 
   @@map("users")
 }
@@ -294,4 +302,50 @@ model PasskeyCredential {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("passkey_credentials")
+}
+
+model BaSession {
+  id        String   @id
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  token     String   @unique
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    BigInt   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ba_sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                BigInt    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("verifications")
 }

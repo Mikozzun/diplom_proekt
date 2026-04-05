@@ -3,6 +3,7 @@ import { prisma } from '../config/database';
 import { generateTokenPair } from '../utils/jwt';
 import { createSession } from './session.service';
 
+// Legacy registration — Better Auth handles this via /api/auth/sign-up/email
 export const register = async (
   username: string,
   phoneNumber: string,
@@ -15,7 +16,13 @@ export const register = async (
 
   const hashed = await bcrypt.hash(passkey, 12);
   const user = await prisma.user.create({
-    data: { username, phoneNumber, passkey: hashed },
+    data: {
+      name: username,
+      email: `${username}@placeholder.local`,
+      username,
+      phoneNumber,
+      passkey: hashed,
+    },
     select: { id: true, username: true, phoneNumber: true, createdAt: true },
   });
 
@@ -27,6 +34,7 @@ export const register = async (
   return user;
 };
 
+// Legacy login — Better Auth handles this via /api/auth/sign-in/email
 export const login = async (
   username: string,
   passkey: string,
@@ -34,7 +42,7 @@ export const login = async (
   ipAddress?: string,
 ) => {
   const user = await prisma.user.findUnique({ where: { username } });
-  if (!user) throw new Error('Invalid credentials');
+  if (!user || !user.passkey) throw new Error('Invalid credentials');
 
   const valid = await bcrypt.compare(passkey, user.passkey);
   if (!valid) throw new Error('Invalid credentials');
@@ -59,41 +67,4 @@ export const login = async (
     },
     ...tokens,
   };
-};
-
-export const loginWithClerk = async (clerkId: string) => {
-  let user = await prisma.user.findUnique({ where: { clerkId } });
-  if (!user) return null;
-
-  const tokens = generateTokenPair(user.id.toString());
-
-  await prisma.userActivityLog.create({
-    data: { userId: user.id, action: 'clerk_login' },
-  });
-
-  return {
-    user: {
-      id: user.id,
-      username: user.username,
-      profileImage: user.profileImage,
-    },
-    ...tokens,
-  };
-};
-
-export const syncClerkUser = async (
-  clerkId: string,
-  username: string,
-  phoneNumber: string,
-) => {
-  let user = await prisma.user.findUnique({ where: { clerkId } });
-  if (user) return user;
-
-  const hashed = await bcrypt.hash(clerkId, 12);
-  user = await prisma.user.create({
-    data: { username, phoneNumber, passkey: hashed, clerkId },
-  });
-
-  await prisma.userSettings.create({ data: { userId: user.id } });
-  return user;
 };

@@ -26,7 +26,7 @@ export const startRegistration = async (
 
     const options = await passkeyUtils.getRegistrationOptions(
       userId.toString(),
-      user.username,
+      user.username || user.name,
       existing.map((c) => ({
         credentialId: c.credentialId,
         publicKey: c.publicKey,

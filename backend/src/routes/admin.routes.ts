@@ -35,4 +35,18 @@ router.put(
 router.get('/reports', reportController.getReports);
 router.get('/metrics', adminController.getMetrics);
 
+router.get('/posts', adminController.getAllPosts);
+router.delete('/users/:userId', adminController.deleteUser);
+router.delete('/posts/:postId', adminController.deletePost);
+router.post(
+  '/users/batch-delete',
+  validate(z.object({ ids: z.array(z.string()).min(1) })),
+  adminController.batchDeleteUsers,
+);
+router.post(
+  '/posts/batch-delete',
+  validate(z.object({ ids: z.array(z.string()).min(1) })),
+  adminController.batchDeletePosts,
+);
+
 export { router as adminRoutes };

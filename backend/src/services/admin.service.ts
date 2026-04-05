@@ -73,3 +73,33 @@ export const banUser = async (userId: bigint) => {
     data: { userId, action: 'banned' },
   });
 };
+
+export const adminDeleteUser = async (userId: bigint) => {
+  return prisma.user.delete({ where: { id: userId } });
+};
+
+export const adminDeletePost = async (postId: bigint) => {
+  return prisma.post.delete({ where: { id: postId } });
+};
+
+export const adminBatchDeleteUsers = async (userIds: bigint[]) => {
+  return prisma.user.deleteMany({ where: { id: { in: userIds } } });
+};
+
+export const adminBatchDeletePosts = async (postIds: bigint[]) => {
+  return prisma.post.deleteMany({ where: { id: { in: postIds } } });
+};
+
+export const adminGetAllPosts = async (page?: string, limit?: string) => {
+  const { page: p, limit: l, skip } = parsePagination(page, limit);
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
+      skip,
+      take: l,
+      orderBy: { createdAt: 'desc' },
+      include: { user: { select: { id: true, username: true } } },
+    }),
+    prisma.post.count(),
+  ]);
+  return { posts, meta: buildMeta(p, l, total) };
+};
