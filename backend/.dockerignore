@@ -1,0 +1,10 @@
+node_modules
+dist
+.adminjs
+.env
+.env.*
+!.env.example
+*.log
+e2e
+auth-ui
+scripts

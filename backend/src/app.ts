@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -48,8 +47,7 @@ app.use(apiLimiter);
 app.all('/api/auth/*', toNodeHandler(auth));
 
 // Serve Better Auth UI static build
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const authUiDist = path.join(__dirname, '..', 'public', 'auth');
+const authUiDist = path.resolve('public', 'auth');
 app.use('/auth', express.static(authUiDist));
 app.get('/auth/*', (_req, res) => {
   res.sendFile(path.join(authUiDist, 'index.html'));

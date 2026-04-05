@@ -1,0 +1,1 @@
+{"version":3,"routes":[{"src":"/auth/assets/(.*)","dest":"/auth/assets/$1"},{"src":"/auth/favicon.svg","dest":"/auth/favicon.svg"},{"src":"/auth/icons.svg","dest":"/auth/icons.svg"},{"src":"/auth/(.*)","dest":"/auth/index.html"},{"handle":"miss"},{"src":"/(.*)","dest":"/api","check":true}]}

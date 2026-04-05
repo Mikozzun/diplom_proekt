@@ -1,6 +1,4 @@
-import { config } from '@dotenvx/dotenvx';
-
-config();
+// Env vars loaded via --env-file=.env in scripts, or injected by Fly.io
 
 export const env = {
   databaseUrl: process.env.DATABASE_URL!,

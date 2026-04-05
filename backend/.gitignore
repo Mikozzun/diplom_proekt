@@ -6,5 +6,4 @@ coverage/
 *.pem
 .vscode/
 memory-bank/
-.vercel/
 src/generated/

@@ -1,6 +1,5 @@
 import app from './app';
 import { env } from './config/env';
-import { setupAdminJS } from './admin/index';
 
 process.on('uncaughtException', (err) => {
   console.error('UNCAUGHT EXCEPTION:', err);
@@ -11,6 +10,7 @@ process.on('unhandledRejection', (reason) => {
 
 const start = async () => {
   try {
+    const { setupAdminJS } = await import('./admin/index');
     const { admin, adminRouter } = await setupAdminJS();
     app.use(admin.options.rootPath, adminRouter);
     console.log(`AdminJS panel ready at ${admin.options.rootPath}`);
@@ -18,7 +18,7 @@ const start = async () => {
     console.error('AdminJS setup failed:', err);
   }
 
-  app.listen(env.port, () => {
+  app.listen(env.port, '0.0.0.0', () => {
     console.log(`Server running on port ${env.port} [${env.nodeEnv}]`);
   });
 };
