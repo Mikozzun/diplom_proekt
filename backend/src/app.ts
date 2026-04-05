@@ -19,10 +19,15 @@ app.set('trust proxy', 1);
   return this.toString();
 };
 
-// Skip helmet for AdminJS and auth-ui paths (they serve their own frontend assets)
+// Skip helmet for AdminJS, auth-ui, and root static pages
 const helmetMiddleware = helmet();
 app.use((req, res, next) => {
-  if (req.path.startsWith('/admin') || req.path.startsWith('/auth'))
+  if (
+    req.path.startsWith('/admin') ||
+    req.path.startsWith('/auth') ||
+    req.path === '/' ||
+    req.path.endsWith('.html')
+  )
     return next();
   helmetMiddleware(req, res, next);
 });
@@ -55,6 +60,9 @@ app.use('/auth', express.static(authUiDist));
 app.get('/auth/*', (_req, res) => {
   res.sendFile(path.join(authUiDist, 'index.html'));
 });
+
+// Serve root static files (home page, privacy policy, terms of service)
+app.use(express.static(path.resolve('public'), { index: 'index.html' }));
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

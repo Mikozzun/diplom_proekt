@@ -45,7 +45,12 @@ export const auth = betterAuth({
   },
   advanced: {
     database: {
-      generateId: false,
+      generateId: (options) => {
+        if (options.model === 'user') {
+          return undefined;
+        }
+        return crypto.randomUUID();
+      },
     },
   },
   plugins: [
@@ -61,5 +66,8 @@ export const auth = betterAuth({
       },
     }),
   ],
-  trustedOrigins: [process.env.BETTER_AUTH_URL || 'http://localhost:5000'],
+  trustedOrigins: [
+    process.env.BETTER_AUTH_URL || 'http://localhost:5000',
+    'http://localhost:4000',
+  ],
 });

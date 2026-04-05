@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frogger — Community Discussion Platform</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.7;
+      color: #e6edf3;
+      background: #0d1117;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 36px;
+      color: #f0f6fc;
+      margin-bottom: 12px;
+    }
+
+    .tagline {
+      font-size: 18px;
+      color: #8b949e;
+      margin-bottom: 32px;
+    }
+
+    .description {
+      font-size: 15px;
+      color: #c9d1d9;
+      margin-bottom: 32px;
+      text-align: left;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .description p {
+      margin-bottom: 12px;
+    }
+
+    .description p:last-child {
+      margin-bottom: 0;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.85;
+    }
+
+    .btn-primary {
+      background: #238636;
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #30363d;
+      color: #c9d1d9;
+    }
+
+    .links {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .links a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
+
+    .links a:hover {
+      text-decoration: underline;
+    }
+
+    .footer {
+      margin-top: 40px;
+      color: #484f58;
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="logo">🐸</div>
+    <h1>Frogger</h1>
+    <p class="tagline">Community Discussion Platform</p>
+
+    <div class="description">
+      <p>Frogger is a community-driven discussion platform where users can create posts, share ideas, comment, and
+        engage in conversations. Think of it as a modern forum built for meaningful discussions.</p>
+      <p>Users can sign up with email or sign in securely using GitHub or Google authentication. Frogger provides a safe
+        and welcoming space for community interaction.</p>
+    </div>
+
+    <div class="actions" id="actions">
+      <a href="/auth" class="btn btn-primary">Sign In / Sign Up</a>
+      <a href="/api/auth" class="btn btn-secondary">API</a>
+    </div>
+
+    <div class="links">
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+    </div>
+
+    <div class="footer">
+      &copy; 2026 Frogger. A diploma project application.
+    </div>
+  </div>
+
+  <script>
+    (async function checkSession() {
+      try {
+        const res = await fetch('/api/auth/get-session', {
+          credentials: 'include',
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.user) {
+          const actions = document.getElementById('actions');
+          actions.innerHTML =
+            '<span class="btn btn-secondary" style="cursor:default;">Welcome, ' +
+            (data.user.name || data.user.email) +
+            '</span>' +
+            '<button class="btn btn-primary" id="logout-btn" style="background:#da3633;border:none;cursor:pointer;">Log Out</button>' +
+            '<a href="/api/auth" class="btn btn-secondary">API</a>';
+          document.getElementById('logout-btn').addEventListener('click', async function () {
+            await fetch('/api/auth/sign-out', {
+              method: 'POST',
+              credentials: 'include',
+            });
+            window.location.reload();
+          });
+        }
+      } catch (_) { /* no session */ }
+    })();
+  </script>
+</body>
+
+</html>
