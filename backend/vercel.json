@@ -4,9 +4,29 @@
     {
       "src": "api/index.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/auth/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
+    {
+      "src": "/auth/assets/(.*)",
+      "dest": "/public/auth/assets/$1"
+    },
+    {
+      "src": "/auth/favicon.svg",
+      "dest": "/public/auth/favicon.svg"
+    },
+    {
+      "src": "/auth/icons.svg",
+      "dest": "/public/auth/icons.svg"
+    },
+    {
+      "src": "/auth/(.*)",
+      "dest": "/public/auth/index.html"
+    },
     {
       "src": "/(.*)",
       "dest": "api/index.ts"
