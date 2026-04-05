@@ -7,7 +7,6 @@ const useAuth = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check authentication status on mount
   useEffect(() => {
     const checkAuth = () => {
       const token = authService.getToken();

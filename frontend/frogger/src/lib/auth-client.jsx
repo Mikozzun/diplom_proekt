@@ -1,12 +1,12 @@
-// src/lib/auth-client.ts
 import { createAuthClient } from 'better-auth/react';
 import {
   usernameClient,
+  phoneNumberClient,
 } from 'better-auth/client/plugins';
 
 export const authClient = createAuthClient({
   baseURL: import.meta.env.VITE_API_URL,
-  plugins: [usernameClient()],
+  plugins: [usernameClient(), phoneNumberClient()],
 });
 
 export const {

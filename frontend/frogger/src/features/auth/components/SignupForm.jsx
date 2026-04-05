@@ -1,161 +1,124 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useForm from '../../../hooks/useForm';
-import useAuth from '../hooks/useAuth';
+import { signUp } from '../../../lib/auth-client';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Card from '../../../components/ui/Card';
+import FrogBackground from '../../../components/FrogBackground';
+import '../../../pages/SignupPage.css';
 
-const SignupForm = () => {
+const SignUpForm = () => {
   const navigate = useNavigate();
-  const { signup, loading, error } = useAuth();
-
-  const validate = (values) => {
-    const errors = {};
-
-    if (!values.name) {
-      errors.name = 'Name is required';
-    } else if (values.name.length < 2) {
-      errors.name = 'Name must be at least 2 characters';
-    }
-
-    if (!values.email) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(values.email)) {
-      errors.email = 'Email is invalid';
-    }
-
-    if (!values.password) {
-      errors.password = 'Password is required';
-    } else if (values.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
-    }
-
-    if (!values.confirmPassword) {
-      errors.confirmPassword = 'Please confirm your password';
-    } else if (values.password !== values.confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
-    }
-
-    return errors;
-  };
-
-  const {
-    values,
-    errors,
-    touched,
-    handleChange,
-    handleBlur,
-    validateForm,
-    resetForm
-  } = useForm(
-    {
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: ''
-    },
-    validate
-  );
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
+    setError('');
+    setLoading(true);
+    
+    const form = new FormData(e.currentTarget);
 
     try {
-      await signup(values);
-      navigate('/profile');
+      const { error } = await signUp.username({
+        username: form.get('username'),
+        password: form.get('password'),
+      });
+
+      if (error) {
+        setError(error.message ?? 'Sign up failed');
+        return;
+      }
+      navigate('/');
     } catch (err) {
-      console.error('Signup failed:', err);
+      setError(err.message ?? 'Sign up failed');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleGitHub = () => {
+    signUp.social({ provider: 'github' });
+  };
+
+  const handleGoogle = () => {
+    signUp.social({ provider: 'google' });
+  };
+
   return (
-    <div className="signup-container">
-      <Card title="Join Frogger" subtitle="Create your account to get croaking" className="signup-card">
-        <form onSubmit={handleSubmit} className="signup-form">
-          <Input
-            type="text"
-            name="name"
-            label="Name"
-            placeholder="Enter your name"
-            value={values.name}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            error={touched.name && errors.name}
-            required
-          />
+    <div className="signup-page">
+      <FrogBackground />
+      <div className="signup-container">
+        <Card title="Join Frogger" subtitle="Create your account to get croaking" className="signup-card">
+          <form onSubmit={handleSubmit} className="signup-form">
+            <Input
+              type="text"
+              name="username"
+              label="Username"
+              placeholder="Choose a username"
+              required
+            />
 
-          <Input
-            type="email"
-            name="email"
-            label="Email"
-            placeholder="Enter your email"
-            value={values.email}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            error={touched.email && errors.email}
-            required
-          />
+            <Input
+              type="password"
+              name="password"
+              label="Password"
+              placeholder="Create a password"
+              required
+            />
 
-          <Input
-            type="password"
-            name="password"
-            label="Password"
-            placeholder="Create a password"
-            value={values.password}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            error={touched.password && errors.password}
-            required
-          />
+            {error && (
+              <div className="alert alert-error">
+                {error}
+              </div>
+            )}
+            
+            <div className="form-footer">
+              <div className="form-actions">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="large"
+                  loading={loading}
+                  className="signup-button"
+                >
+                  Sign Up
+                </Button>
+              </div>
 
-          <Input
-            type="password"
-            name="confirmPassword"
-            label="Confirm Password"
-            placeholder="Confirm your password"
-            value={values.confirmPassword}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            error={touched.confirmPassword && errors.confirmPassword}
-            required
-          />
-
-          {error && (
-            <div className="alert alert-error">
-              {error}
+              <div className="form-options">
+                <p className="text-center">
+                  Already have an account?{' '}
+                  <a href="/login" className="link">
+                    Sign in
+                  </a>
+                </p>
+              </div>
             </div>
-          )}
-          <div className="form-footer">
+            
             <div className="form-actions">
               <Button
-                type="submit"
-                variant="primary"
-                size="large"
-                loading={loading}
-                className="signup-button"
+                type="button"
+                variant="outline"
+                onClick={handleGitHub}
+                className="btn btn-medium"
               >
-                Sign Up
+                Sign up with GitHub
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGoogle}
+                className="btn btn-medium"
+              >
+                Sign up with Google
               </Button>
             </div>
-
-            <div className="form-options">
-              <p className="text-center">
-                Already have an account?{' '}
-                <a href="/login" className="link">
-                  Sign in
-                </a>
-              </p>
-            </div>
-          </div>
-        </form>
-      </Card>
+          </form>
+        </Card>
+      </div>
     </div>
   );
 };
 
-export default SignupForm;
+export default SignUpForm;

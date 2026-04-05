@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import SignupPage from './pages/SignupPage'
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 
 function App() {

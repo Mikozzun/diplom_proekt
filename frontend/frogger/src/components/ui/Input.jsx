@@ -1,16 +1,19 @@
 import React from 'react';
 
-const Input = ({ 
-  type = 'text', 
-  placeholder = '', 
-  value = '', 
-  onChange, 
+const Input = ({
+  type = 'text',
+  placeholder = '',
+  value,
+  onChange,
   label = '',
   error = '',
   required = false,
   name = '',
   disabled = false
 }) => {
+  const isControlled = value !== undefined;
+  const inputValue = isControlled ? value : undefined;
+  
   return (
     <div className="input-group">
       {label && (
@@ -23,8 +26,7 @@ const Input = ({
         id={name}
         name={name}
         placeholder={placeholder}
-        value={value}
-        onChange={onChange}
+        {...(isControlled ? { value: inputValue, onChange } : { defaultValue: '' })}
         disabled={disabled}
         className={`input-field ${error ? 'input-error' : ''}`}
         required={required}
