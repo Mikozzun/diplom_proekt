@@ -10,19 +10,38 @@ import { prisma } from '../config/database';
 AdminJS.registerAdapter({ Database, Resource });
 
 const authenticate = async (email: string, password: string) => {
+  console.log('[AdminJS Auth] Login attempt:', { username: email });
+
   const user = await prisma.user.findUnique({
     where: { username: email },
   });
-  if (!user) return null;
+  if (!user) {
+    console.log('[AdminJS Auth] User not found:', email);
+    return null;
+  }
+  console.log('[AdminJS Auth] User found:', {
+    id: user.id,
+    username: user.username,
+    hasPasskey: !!user.passkey,
+    passkeyLength: user.passkey?.length ?? 0,
+  });
 
   const adminRecord = await prisma.admin.findUnique({
     where: { userId: user.id },
   });
-  if (!adminRecord) return null;
+  if (!adminRecord) {
+    console.log('[AdminJS Auth] No admin record for userId:', user.id);
+    return null;
+  }
+  console.log('[AdminJS Auth] Admin record found:', {
+    adminId: adminRecord.id,
+  });
 
   const valid = await bcrypt.compare(password, user.passkey || '');
+  console.log('[AdminJS Auth] Password valid:', valid);
   if (!valid) return null;
 
+  console.log('[AdminJS Auth] Login successful for:', user.username);
   return { email: user.username, id: user.id.toString() };
 };
 
@@ -38,6 +57,21 @@ export const setupAdminJS = async () => {
 
   const admin = new AdminJS({
     rootPath: '/admin',
+    locale: {
+      language: 'en',
+      translations: {
+        en: {
+          components: {
+            Login: {
+              properties: {
+                email: 'Username',
+                password: 'Password',
+              },
+            },
+          },
+        },
+      },
+    },
     resources: [
       {
         resource: db.table('users'),

@@ -12,6 +12,9 @@ import { router } from './routes';
 
 const app = express();
 
+// Trust Fly.io reverse proxy so secure cookies work behind TLS termination
+app.set('trust proxy', 1);
+
 (BigInt.prototype as any).toJSON = function () {
   return this.toString();
 };

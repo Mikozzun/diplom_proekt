@@ -24,16 +24,21 @@ async function main() {
 
   // 2. Create admin user
   const adminPasskey = await bcrypt.hash('admin123', 12);
+  console.log(`Admin passkey hash: ${adminPasskey}`);
   const adminUser = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: {},
+    update: { passkey: adminPasskey },
     create: {
+      name: 'Admin',
+      email: 'admin@frogger.local',
       username: 'admin',
       phoneNumber: '+1000000000',
       passkey: adminPasskey,
     },
   });
-  console.log(`Admin user created: id=${adminUser.id}`);
+  console.log(
+    `Admin user upserted: id=${adminUser.id}, username=${adminUser.username}, hasPasskey=${!!adminUser.passkey}`,
+  );
 
   // 3. Link admin to Admin table
   await prisma.admin.upsert({
@@ -70,6 +75,8 @@ async function main() {
     where: { username: 'testuser' },
     update: {},
     create: {
+      name: 'Test User',
+      email: 'testuser@frogger.local',
       username: 'testuser',
       phoneNumber: '+1000000001',
       passkey: testPasskey,
