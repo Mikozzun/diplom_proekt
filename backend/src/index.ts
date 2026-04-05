@@ -19,6 +19,22 @@ const start = async () => {
     const { setupAdminJS } = await import('./admin/index');
     console.log('[AdminJS] Module imported, initializing...');
     const { admin, adminRouter } = await setupAdminJS();
+
+    // Debug middleware: log cookie/proxy state on admin requests
+    app.use(admin.options.rootPath, (req, res, next) => {
+      if (req.path === '/login' || req.path === '/') {
+        console.log(`[AdminJS Request] ${req.method} ${req.path}`, {
+          cookieHeader: req.headers.cookie
+            ? req.headers.cookie.replace(/=.*/g, '=...')
+            : 'missing',
+          proto: req.protocol,
+          secure: req.secure,
+          xForwardedProto: req.headers['x-forwarded-proto'],
+        });
+      }
+      next();
+    });
+
     app.use(admin.options.rootPath, adminRouter);
     console.log(`[AdminJS] Panel ready at ${admin.options.rootPath}`);
   } catch (err) {

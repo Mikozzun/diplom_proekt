@@ -191,6 +191,12 @@ export const setupAdminJS = async () => {
     createTableIfMissing: true,
   });
 
+  sessionStore.on('error', (err: Error) => {
+    console.error('[AdminJS Session Store] Error:', err);
+  });
+
+  console.log('[AdminJS] Session store created, table: adminjs_sessions');
+
   const adminRouter = AdminJSExpress.buildAuthenticatedRouter(
     admin,
     {
@@ -201,12 +207,14 @@ export const setupAdminJS = async () => {
     null,
     {
       store: sessionStore,
-      resave: false,
+      resave: true,
       saveUninitialized: false,
       secret: env.sessionSecret,
       cookie: {
         httpOnly: true,
         secure: env.nodeEnv === 'production',
+        sameSite: 'lax' as const,
+        maxAge: 24 * 60 * 60 * 1000,
       },
       name: 'adminjs',
     },
