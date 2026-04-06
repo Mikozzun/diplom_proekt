@@ -1,7 +1,31 @@
 import { Request, Response, NextFunction } from 'express';
 import * as userService from '../services/user.service';
 import * as sessionService from '../services/session.service';
-import { sendSuccess, sendError, sendNoContent } from '../utils/response';
+import {
+  sendSuccess,
+  sendError,
+  sendNoContent,
+  sendPaginated,
+} from '../utils/response';
+
+export const searchUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const q = (req.query.q as string) || '';
+    if (q.length < 1) {
+      sendSuccess(res, []);
+      return;
+    }
+    const { page, limit } = req.query as { page?: string; limit?: string };
+    const result = await userService.searchUsers(q, page, limit);
+    sendPaginated(res, result.users, result.meta);
+  } catch (err) {
+    next(err);
+  }
+};
 
 export const getMe = async (
   req: Request,

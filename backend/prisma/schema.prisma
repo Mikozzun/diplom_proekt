@@ -39,18 +39,22 @@ model User {
   passkeyCredentials PasskeyCredential[]
   accounts           Account[]
   baSessions         BaSession[]
+  followers          Follow[]       @relation("Following")
+  following          Follow[]       @relation("FollowedBy")
 
   @@map("users")
 }
 
 model Post {
-  id        BigInt    @id @default(autoincrement())
-  content   String?
-  imageUrl  String?   @map("image_url")
-  videoUrl  String?   @map("video_url")
-  userId    BigInt?   @map("user_id")
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamptz
+  id          BigInt    @id @default(autoincrement())
+  content     String?
+  contentHtml String?   @map("content_html")
+  isMarkdown  Boolean   @default(false) @map("is_markdown")
+  imageUrl    String?   @map("image_url")
+  videoUrl    String?   @map("video_url")
+  userId      BigInt?   @map("user_id")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime? @updatedAt @map("updated_at") @db.Timestamptz
 
   user           User?                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   comments       Comment[]
@@ -347,4 +351,17 @@ model Verification {
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("verifications")
+}
+
+model Follow {
+  id          BigInt   @id @default(autoincrement())
+  followerId  BigInt   @map("follower_id")
+  followingId BigInt   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  follower  User @relation("FollowedBy", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
 }

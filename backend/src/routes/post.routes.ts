@@ -13,6 +13,7 @@ const createPostSchema = z.object({
   content: z.string().optional(),
   imageUrl: z.string().url().optional(),
   videoUrl: z.string().url().optional(),
+  isMarkdown: z.boolean().optional(),
 });
 
 const commentSchema = z.object({

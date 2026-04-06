@@ -7,6 +7,31 @@ import {
   sendNoContent,
 } from '../utils/response';
 
+export const uploadFileLocal = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.file) {
+      sendError(res, 'No file uploaded', 400);
+      return;
+    }
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+
+    const entry = await storageService.createStorageEntry(req.userId!, {
+      fileName: req.file.originalname,
+      fileType: req.file.mimetype,
+      fileSize: BigInt(req.file.size),
+      fileUrl,
+    });
+    sendCreated(res, entry);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const uploadFile = async (
   req: Request,
   res: Response,

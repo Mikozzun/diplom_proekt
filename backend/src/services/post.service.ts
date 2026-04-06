@@ -1,12 +1,28 @@
 import { prisma } from '../config/database';
 import { parsePagination, buildMeta } from '../utils/pagination';
+import { renderMarkdown } from '../utils/markdown';
 
 export const createPost = async (
   userId: bigint,
-  data: { content?: string; imageUrl?: string; videoUrl?: string },
+  data: {
+    content?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    isMarkdown?: boolean;
+  },
 ) => {
+  const contentHtml =
+    data.isMarkdown && data.content ? renderMarkdown(data.content) : null;
+
   const post = await prisma.post.create({
-    data: { ...data, userId },
+    data: {
+      content: data.content,
+      contentHtml,
+      isMarkdown: data.isMarkdown ?? false,
+      imageUrl: data.imageUrl,
+      videoUrl: data.videoUrl,
+      userId,
+    },
     include: {
       user: { select: { id: true, username: true, profileImage: true } },
       _count: { select: { comments: true, likes: true, reactions: true } },
@@ -51,14 +67,33 @@ export const getPostById = async (id: bigint) => {
 export const updatePost = async (
   id: bigint,
   userId: bigint,
-  data: { content?: string; imageUrl?: string; videoUrl?: string },
+  data: {
+    content?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    isMarkdown?: boolean;
+  },
 ) => {
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post || post.userId !== userId) throw new Error('Not authorized');
 
+  const isMarkdown = data.isMarkdown ?? post.isMarkdown;
+  const contentHtml =
+    isMarkdown && data.content
+      ? renderMarkdown(data.content)
+      : data.content !== undefined
+        ? null
+        : post.contentHtml;
+
   return prisma.post.update({
     where: { id },
-    data,
+    data: {
+      content: data.content,
+      contentHtml,
+      isMarkdown,
+      imageUrl: data.imageUrl,
+      videoUrl: data.videoUrl,
+    },
     include: {
       user: { select: { id: true, username: true, profileImage: true } },
       _count: { select: { comments: true, likes: true, reactions: true } },

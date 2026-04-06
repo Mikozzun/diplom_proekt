@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as postService from '../services/post.service';
+import * as feedService from '../services/feed.service';
 import {
   sendSuccess,
   sendCreated,
@@ -15,6 +16,8 @@ export const createPost = async (
 ) => {
   try {
     const post = await postService.createPost(req.userId!, req.body);
+    // Propagate to all users' randomized feeds
+    await feedService.onPostCreated(post.id);
     sendCreated(res, post);
   } catch (err) {
     next(err);
@@ -79,7 +82,9 @@ export const deletePost = async (
   next: NextFunction,
 ) => {
   try {
-    await postService.deletePost(BigInt(req.params.id as string), req.userId!);
+    const postId = BigInt(req.params.id as string);
+    await postService.deletePost(postId, req.userId!);
+    await feedService.onPostDeleted(postId);
     sendNoContent(res);
   } catch (err: any) {
     if (err.message === 'Not authorized') {
@@ -115,7 +120,7 @@ export const getFeed = async (
 ) => {
   try {
     const { page, limit } = req.query as { page?: string; limit?: string };
-    const result = await postService.getRandomizedFeed(
+    const result = await feedService.getRandomizedFeed(
       req.userId!,
       page,
       limit,
