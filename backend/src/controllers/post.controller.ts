@@ -16,8 +16,12 @@ export const createPost = async (
 ) => {
   try {
     const post = await postService.createPost(req.userId!, req.body);
-    // Propagate to all users' randomized feeds
-    await feedService.onPostCreated(post.id);
+    // Propagate to all users' feeds without blocking the response
+    feedService
+      .onPostCreated(post.id)
+      .catch((err) =>
+        console.error(`Feed propagation failed for post ${post.id}:`, err),
+      );
     sendCreated(res, post);
   } catch (err) {
     next(err);
@@ -124,6 +128,7 @@ export const getFeed = async (
       req.userId!,
       page,
       limit,
+      req.sessionStartedAt,
     );
     sendPaginated(res, result.posts, result.meta);
   } catch (err) {

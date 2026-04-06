@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { username, phoneNumber } from 'better-auth/plugins';
 import { prisma } from '../config/database';
+import { initFeedForUser } from '../scripts/randomize-feed';
 
 export const auth = betterAuth({
   basePath: '/api/auth',
@@ -10,6 +11,20 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          // Init randomized feed for newly registered user
+          try {
+            await initFeedForUser(BigInt(user.id));
+          } catch (err) {
+            console.error(`Failed to init feed for user ${user.id}:`, err);
+          }
+        },
+      },
+    },
+  },
   user: {
     modelName: 'User',
     additionalFields: {
@@ -47,7 +62,7 @@ export const auth = betterAuth({
     database: {
       generateId: (options) => {
         if (options.model === 'user') {
-          return undefined;
+          return false;
         }
         return crypto.randomUUID();
       },

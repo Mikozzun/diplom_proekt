@@ -20,27 +20,30 @@ export const createSession = async (
   return { session };
 };
 
-export const validateRefreshToken = async (
-  userId: bigint,
-  refreshToken: string,
-) => {
+export const validateRefreshToken = async (userId: bigint, refreshToken: string) => {
+  // Limit to 10 most recent sessions — prevents unbounded bcrypt loop
   const sessions = await prisma.session.findMany({
     where: { userId, expiresAt: { gt: new Date() } },
+    orderBy: { lastActive: 'desc' },
+    take: 10,
   });
 
   for (const session of sessions) {
     const valid = await bcrypt.compare(refreshToken, session.refreshToken);
     if (valid) {
-      await prisma.session.update({
-        where: { id: session.id },
-        data: { lastActive: new Date() },
-      });
+      // Update lastActive without blocking the return
+      prisma.session
+        .update({
+          where: { id: session.id },
+          data: { lastActive: new Date() },
+        })
+        .catch(() => {});
       return session;
     }
   }
 
   return null;
-};
+};;
 
 export const rotateRefreshToken = async (
   sessionId: bigint,

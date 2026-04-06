@@ -21,7 +21,7 @@
     "seed": "tsx --env-file=.env prisma/seed.ts",
     "e2e": "tsx --env-file=.env e2e/api.test.ts",
     "e2e:connectivity": "tsx --env-file=.env e2e/connectivity.test.ts",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package && node scripts/patch-adminjs-design-system.mjs"
   },
   "dependencies": {
     "@adminjs/express": "^6.1.1",

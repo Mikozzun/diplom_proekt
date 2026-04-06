@@ -18,6 +18,7 @@ model User {
   phoneNumberVerified  Boolean   @default(false) @map("phone_number_verified")
   passkey         String?
   profileImage    String?   @map("profile_image")
+  feedShuffledAt  DateTime? @map("feed_shuffled_at") @db.Timestamptz
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime? @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -273,6 +274,7 @@ model UserPostRandomization {
   post Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
+  @@index([userId, randomOrder], map: "idx_upr_user_order")
   @@map("user_post_randomization")
 }
 

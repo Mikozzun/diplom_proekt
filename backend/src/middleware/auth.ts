@@ -3,18 +3,64 @@ import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../lib/auth';
 import { verifyAccessToken } from '../utils/jwt';
 import { prisma } from '../config/database';
+import { sessionCache } from '../utils/session-cache';
+
+/**
+ * Extract a cache key from the request.
+ * Prefer the Better Auth session token (cookie) over JWT.
+ */
+const extractCacheKey = (req: Request): string | null => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7);
+  // Better Auth stores session token in a cookie
+  const cookie =
+    req.cookies?.['better-auth.session_token'] ??
+    req.cookies?.['__Secure-better-auth.session_token'];
+  return cookie ?? null;
+};
+
+/**
+ * Try to resolve auth from cached session data first.
+ * Returns true if cache hit, false if miss.
+ */
+const tryCache = (req: Request): boolean => {
+  const key = extractCacheKey(req);
+  if (!key) return false;
+  const cached = sessionCache.get(key);
+  if (!cached) return false;
+  req.userId = cached.userId;
+  req.sessionStartedAt = cached.sessionStartedAt;
+  return true;
+};
+
+/**
+ * Populate cache after a successful DB/auth resolution.
+ */
+const cacheSession = (
+  req: Request,
+  userId: bigint,
+  sessionStartedAt?: Date,
+) => {
+  const key = extractCacheKey(req);
+  if (key) sessionCache.set(key, userId, sessionStartedAt);
+  req.userId = userId;
+  req.sessionStartedAt = sessionStartedAt;
+};
 
 export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
+  // Fast path: in-memory cache hit
+  if (tryCache(req)) return next();
+
   // Legacy JWT bearer token support
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const payload = verifyAccessToken(authHeader.slice(7));
-      req.userId = BigInt(payload.userId);
+      cacheSession(req, BigInt(payload.userId));
       return next();
     } catch {}
   }
@@ -25,7 +71,10 @@ export const authenticate = async (
       headers: fromNodeHeaders(req.headers),
     });
     if (session?.user) {
-      req.userId = BigInt(session.user.id);
+      const started = session.session?.createdAt
+        ? new Date(session.session.createdAt)
+        : undefined;
+      cacheSession(req, BigInt(session.user.id), started);
       return next();
     }
   } catch {}
@@ -38,11 +87,14 @@ export const optionalAuth = async (
   _res: Response,
   next: NextFunction,
 ): Promise<void> => {
+  // Fast path: in-memory cache hit
+  if (tryCache(req)) return next();
+
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const payload = verifyAccessToken(authHeader.slice(7));
-      req.userId = BigInt(payload.userId);
+      cacheSession(req, BigInt(payload.userId));
     } catch {}
   }
 
@@ -52,7 +104,10 @@ export const optionalAuth = async (
         headers: fromNodeHeaders(req.headers),
       });
       if (session?.user) {
-        req.userId = BigInt(session.user.id);
+        const started = session.session?.createdAt
+          ? new Date(session.session.createdAt)
+          : undefined;
+        cacheSession(req, BigInt(session.user.id), started);
       }
     } catch {}
   }

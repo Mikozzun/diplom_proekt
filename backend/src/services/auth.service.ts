@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../config/database';
 import { generateTokenPair } from '../utils/jwt';
 import { createSession } from './session.service';
+import { initFeedForUser } from '../scripts/randomize-feed';
 
 // Legacy registration — Better Auth handles this via /api/auth/sign-up/email
 export const register = async (
@@ -30,6 +31,9 @@ export const register = async (
   await prisma.userActivityLog.create({
     data: { userId: user.id, action: 'register' },
   });
+
+  // Init randomized feed for the new user
+  await initFeedForUser(user.id);
 
   return user;
 };

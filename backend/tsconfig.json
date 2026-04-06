@@ -13,10 +13,10 @@
     "resolveJsonModule": true,
     "noEmit": true,
     "sourceMap": true,
-    "baseUrl": "./src",
+    "rootDir": "./src",
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     }
   },
