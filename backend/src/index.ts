@@ -18,7 +18,7 @@ const start = async () => {
     console.log('[AdminJS] Starting setup...');
     const { setupAdminJS } = await import('./admin/index');
     console.log('[AdminJS] Module imported, initializing...');
-    const { admin, adminRouter } = await setupAdminJS();
+    const { admin, adminRouter, guardRouter } = await setupAdminJS();
 
     // Debug middleware: log cookie/proxy state on admin requests
     app.use(admin.options.rootPath, (req, res, next) => {
@@ -35,6 +35,8 @@ const start = async () => {
       next();
     });
 
+    // Mount guard BEFORE adminRouter to intercept login
+    app.use(admin.options.rootPath, guardRouter);
     app.use(admin.options.rootPath, adminRouter);
     console.log(`[AdminJS] Panel ready at ${admin.options.rootPath}`);
   } catch (err) {
