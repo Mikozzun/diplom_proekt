@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import './FrogBackground.css';
 
+const availableFrogs = ['frog.png', 'frog2.jpg', 'frog3.jpg', 'frog4.jpg', 'frog5.jpg']
+
 const FrogBackground = () => {
   const containerRef = useRef(null);
   const frogsRef = useRef([]);
@@ -9,7 +11,7 @@ const FrogBackground = () => {
     const container = containerRef.current;
     if (!container) return;
 
-    const numFrogs = 8;
+    const numFrogs = 20;
     const frogs = [];
 
     for (let i = 0; i < numFrogs; i++) {
@@ -28,6 +30,9 @@ const FrogBackground = () => {
 
       const delay = Math.random() * -20;
       frog.style.animationDelay = `${delay}s`;
+
+      const image = availableFrogs[Math.random() * availableFrogs.length | 0];
+      frog.style.backgroundImage = `url('/frogs/${image}')`;
 
       if (Math.random() > 0.5) {
         frog.style.transform = 'scaleX(-1)';

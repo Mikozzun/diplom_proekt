@@ -5,6 +5,7 @@ import ProfilePage from './pages/ProfilePage';
 import SignupPage from './pages/SignupPage';
 import LandingPage from './pages/LandingPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import DebugToolbar from './components/debug/DebugToolbar';
 
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       </Routes>
+      <DebugToolbar />
     </BrowserRouter>
   );
 }

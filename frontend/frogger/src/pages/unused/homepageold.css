@@ -1,13 +1,14 @@
 .home-page {
-  min-height: 100vh;
-  width: 100%;
-  background: #f7fafc;
+  height: 100vh;
+  width: 100vw;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
 }
 
 .home-container {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 40px 20px;
 }
 
 .hero-section {

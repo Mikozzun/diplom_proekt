@@ -27,7 +27,7 @@ const LandingPage = () => {
           <div className="landing-header">
             <h1 className="landing-title">Welcome to Frogger</h1>
             <p className="landing-subtitle">
-              Discover amazing content and connect with friends in a vibrant community
+              It doesn't matter when it was posted, it's now right here, for you.
             </p>
           </div>
 
@@ -43,9 +43,9 @@ const LandingPage = () => {
               <p>Share your thoughts and connect with like-minded people</p>
             </div>
             <div className="feature-card">
-              <div className="feature-icon">🎯</div>
-              <h3>Stay Focused</h3>
-              <p>Organize your interests and never miss what matters to you</p>
+              <div className="feature-icon">⏱️</div>
+              <h3>Travel through time...</h3>
+              <p>Who knows where you might end up!</p>
             </div>
           </div>
 
