@@ -350,6 +350,11 @@ export const setupAdminJS = async () => {
 </body></html>`);
   });
 
+  // GET /force-login — redirect to /admin
+  guardRouter.get('/force-login', (_req, res) => {
+    res.redirect('/admin');
+  });
+
   // Force login — destroy sessions, set cookie, auto-submit to AdminJS login
   guardRouter.post(
     '/force-login',
@@ -407,4 +412,4 @@ document.body.appendChild(f);f.submit();
   }
 
   return { admin, adminRouter, guardRouter };
-};
+};;
