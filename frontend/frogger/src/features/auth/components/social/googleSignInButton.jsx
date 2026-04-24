@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://frogger-backend.fly.dev/';
 
 export default function GoogleSignInButton({ label = 'Sign in with Google' }) {
   function handleClick() {

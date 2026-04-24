@@ -69,9 +69,6 @@ const LoginForm = () => {
             )}
             
             <div className="form-footer">
-
-
-
               <div className="form-actions">
                 <Button
                   type="submit"
