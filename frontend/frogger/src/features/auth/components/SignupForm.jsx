@@ -37,13 +37,13 @@ const SignUpForm = () => {
     }
   };
 
-  const handleGitHub = () => {
-    signUp.social({ provider: 'github' });
-  };
+  // const handleGitHub = () => {
+  //   signUp.social({ provider: 'github' });
+  // };
 
-  const handleGoogle = () => {
-    signUp.social({ provider: 'google' });
-  };
+  // const handleGoogle = () => {
+  //   signUp.social({ provider: 'google' });
+  // };
 
   return (
     <div className="signup-page">
@@ -94,25 +94,6 @@ const SignUpForm = () => {
                   </a>
                 </p>
               </div>
-            </div>
-            
-            <div className="form-actions">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGitHub}
-                className="btn btn-medium"
-              >
-                Sign up with GitHub
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGoogle}
-                className="btn btn-medium"
-              >
-                Sign up with Google
-              </Button>
             </div>
           </form>
         </Card>
