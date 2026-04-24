@@ -1,17 +1,9 @@
 import { createAuthClient } from 'better-auth/react';
-import {
-  usernameClient,
-  phoneNumberClient,
-} from 'better-auth/client/plugins';
+import { usernameClient, phoneNumberClient } from 'better-auth/client/plugins';
 
 export const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
   plugins: [usernameClient(), phoneNumberClient()],
 });
 
-export const {
-  signUp,
-  signIn,
-  signOut,
-  useSession,
-} = authClient;
+export const { signUp, signIn, signOut, useSession } = authClient; 

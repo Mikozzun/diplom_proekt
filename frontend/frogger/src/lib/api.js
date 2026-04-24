@@ -1,9 +1,15 @@
-import axios from 'axios';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL}/api`,
-  withCredentials: true, // sends session cookie
-  headers: { 'Content-Type': 'application/json' },
-});
+export async function apiFetch(path, init) {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    credentials: 'include',          // sends/receives cookies for auth
+    headers: {
+      'Content-Type': 'application/json',
+      ...init.headers,
+    },
+  });
+  if (!res.ok) throw await res.json().catch(() => ({ error: res.statusText }));
+  return res.json();
 
-export default api;
+}

@@ -1,7 +1,7 @@
 import React from 'react';
-import useAuth from '../features/auth/hooks/useAuth';
-import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
+import useAuth from '../../features/auth/hooks/useAuth';
+import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 import './HomePage.css';
 
 const HomePage = () => {
