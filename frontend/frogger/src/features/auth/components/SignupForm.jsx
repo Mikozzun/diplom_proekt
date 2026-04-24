@@ -5,6 +5,8 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Card from '../../../components/ui/Card';
 import FrogBackground from '../../../components/FrogBackground';
+import GitHubSignInButton from './social/githubSignInButton';
+import GoogleSignInButton from './social/googleSignInButton';
 import '../../../pages/SignupPage.css';
 
 const SignUpForm = () => {
@@ -96,6 +98,10 @@ const SignUpForm = () => {
               </div>
             </div>
           </form>
+                  <div>
+                    <GitHubSignInButton/>
+                    <GoogleSignInButton/>
+                  </div>
         </Card>
       </div>
     </div>

@@ -5,6 +5,8 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Card from '../../../components/ui/Card';
 import FrogBackground from '../../../components/FrogBackground';
+import GitHubSignInButton from './social/githubSignInButton';
+import GoogleSignInButton from './social/googleSignInButton';
 import '../../../pages/LoginPage.css';
 
 const LoginForm = () => {
@@ -37,13 +39,6 @@ const LoginForm = () => {
     }
   };
 
-  const handleGitHub = () => {
-    signIn.social({ provider: 'github' });
-  };
-
-  const handleGoogle = () => {
-    signIn.social({ provider: 'google' });
-  };
 
   return (
     <div className="login-page">
@@ -100,27 +95,12 @@ const LoginForm = () => {
                 </p>
               </div>
             </div>
-            
-            <div className="form-actions">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGitHub}
-                className="btn btn-medium"
-              >
-                Sign in with GitHub
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGoogle}
-                className="btn btn-medium"
-              >
-                Sign in with Google
-              </Button>
-            </div>
           </form>
         </Card>
+        <div>
+          <GitHubSignInButton/>
+          <GoogleSignInButton/>
+        </div>
       </div>
     </div>
   );

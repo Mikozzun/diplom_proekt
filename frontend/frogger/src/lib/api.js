@@ -1,6 +1,6 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export async function apiFetch(path, init) {
+export default async function apiFetch(path, init) {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',          // sends/receives cookies for auth
