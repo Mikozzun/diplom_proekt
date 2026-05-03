@@ -3,8 +3,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/auth/:path", "destination": "https://frogger-backend.fly.dev/api/auth/:path" },
-    { "source": "/api/:path", "destination": "https://frogger-backend.fly.dev/api/:path" },
-    { "source": "/frogger/(.*)", "destination": "/index.html" }
+    { "source": "/api/auth/:path*", "destination": "https://frogger-backend.fly.dev/api/auth/:path*" },
+    { "source": "/api/:path*", "destination": "https://frogger-backend.fly.dev/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
-}
+} 
