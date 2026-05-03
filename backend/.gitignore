@@ -1,11 +1,8 @@
 node_modules/
-dist/
 coverage/
 .env
 *.key
 *.pem
 .vscode/
 memory-bank/
-src/generated/
-public/uploads/*
-!public/uploads/.gitkeep
+

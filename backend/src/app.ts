@@ -31,9 +31,21 @@ app.use((req, res, next) => {
     return next();
   helmetMiddleware(req, res, next);
 });
+const allowedOrigins = Array.from(
+  new Set(
+    [env.frontendUrl, env.betterAuthUrl, ...env.corsOrigin.split(',')]
+      .map((o) => o.trim())
+      .filter(Boolean),
+  ),
+);
 app.use(
   cors({
-    origin: env.corsOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   }),
 );

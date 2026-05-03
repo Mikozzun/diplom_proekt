@@ -5,10 +5,7 @@ import { verifyAccessToken } from '../utils/jwt';
 import { prisma } from '../config/database';
 import { sessionCache } from '../utils/session-cache';
 
-/**
- * Extract a cache key from the request.
- * Prefer the Better Auth session token (cookie) over JWT.
- */
+
 const extractCacheKey = (req: Request): string | null => {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7);
@@ -19,10 +16,7 @@ const extractCacheKey = (req: Request): string | null => {
   return cookie ?? null;
 };
 
-/**
- * Try to resolve auth from cached session data first.
- * Returns true if cache hit, false if miss.
- */
+
 const tryCache = (req: Request): boolean => {
   const key = extractCacheKey(req);
   if (!key) return false;
@@ -33,9 +27,7 @@ const tryCache = (req: Request): boolean => {
   return true;
 };
 
-/**
- * Populate cache after a successful DB/auth resolution.
- */
+
 const cacheSession = (
   req: Request,
   userId: bigint,

@@ -2,12 +2,23 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { username, phoneNumber } from 'better-auth/plugins';
 import { prisma } from '../config/database';
+import { env } from '../config/env';
 import { initFeedForUser } from '../scripts/randomize-feed';
 
 export const auth = betterAuth({
   basePath: '/api/auth',
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:5000',
+  rateLimit: {
+    // Keep protection enabled, but avoid false 429s during OAuth redirects.
+    enabled: true,
+    window: 60,
+    max: 300,
+    customRules: {
+      '/sign-in/social': { window: 60, max: 600 },
+      '/callback/*': { window: 60, max: 600 },
+    },
+  },
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
@@ -81,8 +92,15 @@ export const auth = betterAuth({
       },
     }),
   ],
-  trustedOrigins: [
-    process.env.BETTER_AUTH_URL || 'http://localhost:5000',
-    'http://localhost:4000',
-  ],
+  trustedOrigins: Array.from(
+    new Set([
+      env.betterAuthUrl,
+      env.frontendUrl,
+      'http://localhost:4000',
+      ...env.corsOrigin
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    ]),
+  ),
 });
