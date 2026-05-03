@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://frogger-backend.fly.dev/';
+const API_URL = import.meta.env.VITE_API_URL || 'https://frogger-backend.fly.dev';
 
 export default function GitHubSignInButton({ label = 'Sign in with GitHub' }) {
   function handleClick() {
