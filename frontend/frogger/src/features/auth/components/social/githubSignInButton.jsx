@@ -21,6 +21,8 @@ export default function GitHubSignInButton({
       });
 
       if (result?.error) {
+        console.log(result.error?.message)
+        console.log(result.error)
         throw new Error(result.error.message || 'GitHub sign in failed');
       }
 
