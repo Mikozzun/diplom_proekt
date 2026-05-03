@@ -39,14 +39,6 @@ const SignUpForm = () => {
     }
   };
 
-  // const handleGitHub = () => {
-  //   signUp.social({ provider: 'github' });
-  // };
-
-  // const handleGoogle = () => {
-  //   signUp.social({ provider: 'google' });
-  // };
-
   return (
     <div className="signup-page">
       <FrogBackground />
